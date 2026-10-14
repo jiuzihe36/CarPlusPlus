@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black">
+
+    <!-- The ICCOA SDK renders the phone's Miracast stream straight into this surface. -->
+    <SurfaceView
+        android:id="@+id/icoca_surface"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <TextView
+        android:id="@+id/icoca_hint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="@string/da_connecting"
+        android:textColor="#CCFFFFFF"
+        android:textSize="20sp"
+        android:visibility="gone" />
+
+    <!-- Sits over the mirrored UI on purpose: a head unit may have no reachable Back, so there
+         must always be a way out. Kept translucent so it stays out of the way. -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/icoca_disconnect"
+        style="@style/Widget.MaterialComponents.Button.TextButton"
+        android:layout_width="wrap_content"
+        android:layout_height="44dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="10dp"
+        android:alpha="0.45"
+        android:text="@string/shortcut_disconnect_title"
+        android:textColor="#FFFFFFFF" />
+
+</FrameLayout>

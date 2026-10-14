@@ -1,0 +1,3 @@
+<?xml version="1.0" ?>
+<!-- Car++ 自有图标（替换原 Android Auto 占位图标） -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/ic_ma_logo" android:insetLeft="0%" android:insetTop="0%" android:insetRight="0%" android:insetBottom="0%"/>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="da_brand">Car++</string>
+    <string name="da_tagline">Car++Car · 车机端</string>
+    <string name="da_headline">手机内容，尽在车机大屏。</string>
+    <string name="da_description">把手机投屏到这块车机屏幕或仪表盘/HUD。\n在手机上打开小米 CarWith、OPPO Car+ 车联或 vivo Jovi InCar，选择本车机即可开始。</string>
+    <string name="da_connect">开始配对</string>
+    <string name="da_open">打开投屏</string>
+    <string name="da_ready">等待手机连接</string>
+    <string name="da_connecting">正在连接手机…</string>
+    <string name="da_connected">手机已连接</string>
+    <string name="da_pin">配对码：%1$s</string>
+    <string name="da_pin_label">配对码</string>
+    <string name="da_refresh_pin">刷新配对码</string>
+    <string name="da_hint">请保持蓝牙与 Wi-Fi 开启。在手机上打开小米 CarWith、OPPO Car+ 车联或 vivo Jovi InCar，选择本车机后核对此处显示的配对码。</string>
+    <string name="da_wireless">CAR++ CARLINK · CARWITH / CAR+ / JOVI</string>
+    <string name="da_usb">通过蓝牙配对</string>
+    <string name="da_usb_hint">请先在手机的蓝牙设置中与本车机配对。</string>
+    <string name="da_settings">设置</string>
+    <string name="da_settings_hint">显示、仪表与 HUD。</string>
+    <string name="da_close">车辆主屏幕</string>
+    <string name="da_pair">配对手机</string>
+    <string name="da_no_paired">请先将手机与车辆配对，完成后返回此处。</string>
+    <string name="da_bluetooth_off">请在车辆设置中开启蓝牙以连接手机。</string>
+    <string name="da_system_settings">蓝牙设置</string>
+    <string name="da_device">手机</string>
+    <string name="da_preferences">你的旅程，由你决定。</string>
+    <string name="da_preferences_hint">连接、显示和声音，一处设置。</string>
+    <string name="da_automation">自动连接</string>
+    <string name="da_automation_hint">随车辆启动并重新连接手机。</string>
+    <string name="da_display">显示与性能</string>
+    <string name="da_display_hint">画面尺寸、帧率和音频设置。</string>
+    <string name="da_permissions">权限</string>
+    <string name="da_permissions_hint">检查蓝牙、麦克风和位置信息权限。</string>
+    <string name="da_about">关于 Car++</string>
+    <string name="da_about_hint">版本、许可证和开源致谢。</string>
+    <string name="da_saved_hint">视频设置更改将在下次连接时生效。</string>
+    <string name="da_settings_subtitle">调整显示、声音和连接。</string>
+    <string name="da_bluetooth_music">通过车辆蓝牙播放音乐</string>
+    <string name="da_bluetooth_music_hint">让音乐通过车辆蓝牙播放器播放。Car++ 不改变其音频焦点；导航和助手音频仍可使用。更改后请重新连接。</string>
+    <string name="da_legal">Car++ 是独立的第三方开源项目，以 Car++ Pro 与 Car++ 为基座，与比亚迪（BYD）、ICCOA、Google、小米、OPPO、vivo 及其商标持有者均无任何隶属、授权或合作关系。ICCOA CarLink 是由小米、OPPO、vivo 联合发起的车内互联标准；小米 CarWith、OPPO Car+ 车联与 vivo Jovi InCar 是它在手机侧的三个前端，Car++ 则是它在车机侧的独立接收端。文中提及的名称与商标归各自所有者所有。本项目仅供学习与技术交流使用，请勿用于商业用途；使用所产生的一切后果由使用者自行承担。</string>
+</resources>

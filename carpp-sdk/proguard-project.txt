@@ -1,0 +1,79 @@
+# Add project specific ProGuard rules here.
+
+# --- Protobuf Rules ---
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.protobuf.**
+-keepattributes Signature, InnerClasses, EnclosingMethod, *Annotation*
+
+# --- Generated Proto Classes ---
+# Keep all generated protocol buffer classes and their members
+-keep class com.carpp.sdk.aap.protocol.proto.** { *; }
+-keep interface com.carpp.sdk.aap.protocol.proto.** { *; }
+-keep enum com.carpp.sdk.aap.protocol.proto.** { *; }
+
+# --- Reflection Targets ---
+# Ensure these system classes are kept and their members are accessible via reflection
+-keep class android.net.Network { *; }
+-keep class android.net.wifi.WifiInfo { *; }
+
+# --- AndroidX Navigation & Fragments ---
+# Keep NavHostFragment and Navigation classes (referenced in XML)
+-keep class androidx.navigation.** { *; }
+-keep class androidx.fragment.app.FragmentContainerView { *; }
+
+# Keep all fragments in the main package (referenced in nav_graph.xml)
+-keep class com.carpp.sdk.main.** { *; }
+-keep class com.carpp.sdk.main.settings.** { *; }
+
+# --- App Logic ---
+# Keep specific app classes if needed (e.g. accessed via JNI or reflection)
+# -keep class com.carpp.sdk.decoder.** { *; }
+
+# --- JNI ---
+-keep class com.carpp.sdk.aap.AapSslNative { *; }
+-keep class com.carpp.sdk.decoder.FfmpegHevcDecoder { *; }
+-keep class com.carpp.sdk.decoder.FfmpegHevcDecoder$Companion { *; }
+
+# --- Conscrypt Rules ---
+-dontwarn org.conscrypt.**
+-keep class org.conscrypt.Conscrypt { *; }
+-keep class org.conscrypt.OpenSSLProvider { *; }
+
+# --- Glide Rules ---
+-keep public class * implements com.bumptech.glide.module.GlideModule
+-keep class * extends com.bumptech.glide.module.AppGlideModule { <init>(...); }
+-keep public enum com.bumptech.glide.load.ImageHeaderParser$** { **[] $VALUES; public *; }
+
+# --- ICCOA CarLink SDK (Xiaomi CarWith) ---
+# The SDK is consumed two ways: `compileOnly(app/stubs/icar-sdk-stubs.jar)` for type
+# checking, and the real `app/libs/icar-sdk.dex` appended to the APK after packaging
+# (see injectIccoaDex in app/build.gradle.kts). R8 therefore cannot see the SDK
+# implementations and reports every referenced SDK class as missing. Downgrade those
+# to warnings — the classes are present at runtime inside the injected dex.
+-dontwarn com.share.**
+-dontwarn com.easy.**
+-dontwarn com.ucar.**
+-dontwarn com.ucarsink.**
+
+# Keep the glue that talks to the SDK. The SDK invokes it by name across the AIDL
+# boundary and through AndroidManifest component names, both of which R8 cannot trace.
+-keep class com.carpp.app.** { *; }
+-keep class com.carpp.sdk.connection.IcocaBridge { *; }
+-keep class com.carpp.sdk.icoca.** { *; }
+
+# R8 runs before the SDK dex is injected, so it cannot see that the SDK reaches into these
+# program classes at runtime. Without the rules below it strips them and the release build
+# dies at startup with NoClassDefFoundError — which is exactly what happened with
+# androidx.collection.ArrayMap. The debug build never showed it because R8 is off there.
+#
+# The list is not guessed. scripts/r8_keep_scan.py computes it from the SDK dex itself:
+#   type_ids(sdk) - class_defs(sdk)                      -> every type the SDK references
+#   ... intersected with the app dexes' class_defs        -> the ones only R8 can remove
+# Re-run it after updating app/libs/icar-sdk.dex:
+#   python scripts/r8_keep_scan.py app/libs/icar-sdk.dex app/build/outputs/apk/github/debug/*.apk
+-keep class androidx.annotation.** { *; }
+-keep class androidx.collection.** { *; }
+-keep class androidx.core.app.** { *; }
+-keep class androidx.room.** { *; }
+-keep class androidx.room.util.** { *; }
+-keep class androidx.sqlite.db.** { *; }

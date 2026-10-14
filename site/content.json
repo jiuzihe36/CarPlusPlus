@@ -1,0 +1,228 @@
+{
+  "en": {
+    "name": "English",
+    "dir": "ltr",
+    "tag": "Independent community project",
+    "badge": "PUBLIC RELEASE",
+    "title": "Xiaomi / OPPO / vivo phones.\nRight on your car screen.",
+    "intro": "Your phone's navigation, music and calls on the car display. Car++ runs on the car, your phone keeps using CarWith, Car+ or Jovi InCar, and the two find each other over the air.",
+    "download": "Download APK",
+    "install": "How to install",
+    "promise": "No companion app on the car. No dongle or external hardware. No root.",
+    "requires": "Install Car++ on the car, then open CarWith, Car+ 车联 or Jovi InCar on your phone and pick this car from the nearby-device list. Pairing happens automatically and the 6-digit code appears on the car screen.",
+    "gallery": "Made for the car",
+    "captions": [
+      "The car waits with a 6-digit pairing code. Open CarWith, Car+ or Jovi InCar on the phone and pick this car — no buttons to press on the car side.",
+      "Everything lives in one settings tree: connection, display and sound.",
+      "About screen, including the version, upgrade notes and the open-source credits."
+    ],
+    "setup": "Install on your car",
+    "steps": [
+      "Download the APK and install it on the head unit through whichever installation route your car permits. Allow installation from unknown sources if it asks.",
+      "Open Car++ once. The home screen shows the car name and a 6-digit pairing code.",
+      "On your phone, open CarWith, Car+ 车联 or Jovi InCar (or the equivalent screen-mirroring entry in Settings) and pick this car from the nearby-device list.",
+      "Accept the pairing prompt on the phone. The phone screen appears on the car. Do this while parked."
+    ],
+    "adb": "Full installation guide",
+    "bssid": "If the phone cannot find the car, keep the phone's Bluetooth and Wi-Fi on, keep both screens awake, and try again. The car re-advertises itself every 30 seconds while it is unconnected, so a pairing prompt that was dismissed on the phone will come back on its own.",
+    "whats": "What's new",
+    "features": [
+      "**0.1.1 — wording update.** ICCOA CarLink is a standard jointly initiated by Xiaomi, OPPO and vivo. The home screen, the About and Support screens and the legal notice now name Xiaomi CarWith, OPPO Car+ and vivo Jovi InCar together instead of Xiaomi alone, and Traditional Chinese home-screen strings were added. No behaviour change.",
+      "**Wireless ICCOA CarLink reception** — Xiaomi CarWith, OPPO Car+, vivo Jovi InCar and similar phones; the phone stays in the pocket or on the wireless charger.",
+      "**Automatic pairing code** with a 30-second re-advertise watchdog, so a dismissed prompt on the phone comes back without restarting the app.",
+      "**Full settings tree inherited from the base project** — connection, display, video, input, audio, backup, reset and diagnostics.",
+      "**Instrument cluster and HUD projection paths** carried over from the base project, for cars that expose those areas. See the honest status below.",
+      "**Car-friendly home screen** with large pairing digits, a refresh button and a single entry into settings.",
+      "**Own package and signing key**, so Car++ can be installed next to other receiver apps on the same head unit."
+    ],
+    "compat": "Compatibility",
+    "compatText": "**Verified on a Newland NLS-MT9055-GL running Android 11 (arm64):** the app installs, starts, advertises, shows a pairing code and completes a CarWith session, and the pairing code survives a cold start. **Not yet verified:** installation and pairing on a BYD or other production head unit, and the cluster / HUD projection paths, which are carried over from the base project and have not been exercised on hardware with Car++'s protocol stack. If you run one of those setups, expect to be an early tester and please report what you see.",
+    "highlightsTitle": "What this project actually does",
+    "highlightsLead": "Car++ is a car-side receiver for ICCOA CarLink — the one protocol behind Xiaomi CarWith, OPPO Car+ and vivo Jovi InCar. It is built on an existing Android Auto head-unit project, with the phone-side protocol swapped for that one — so the parts that were already solid came along, and the new part is the one that needed real testing.",
+    "cards": [
+      {
+        "eyebrow": "CarWith / Car+ / Jovi InCar",
+        "title": "Phone mirroring, received on the car",
+        "body": "The app advertises itself as a car that any ICCOA CarLink phone can cast to. Your phone keeps its own maps, music and phone apps; nothing is installed on the phone and nothing needs to be configured on the car beyond the APK itself.",
+        "points": [
+          "The car broadcasts, the phone finds it in the nearby-device list.",
+          "A 6-digit code is shown on the car and confirmed on the phone.",
+          "No accounts, no dongle, no cable required."
+        ]
+      },
+      {
+        "eyebrow": "Pairing",
+        "title": "A pairing prompt that comes back",
+        "body": "The failure mode that matters is a prompt the user dismissed on the phone: the car is still broadcasting, but the phone will not show the dialog again on its own. Car++ re-advertises every 30 seconds while it is not connected, which makes the prompt reappear without restarting anything.",
+        "points": [
+          "Re-advertising restarts the broadcast instead of repeating it, because repeating an unchanged broadcast is ignored.",
+          "An active session is never interrupted by the watchdog.",
+          "A manual refresh button is available on the home screen for an immediate retry."
+        ]
+      },
+      {
+        "eyebrow": "Cluster & HUD",
+        "title": "Instrument cluster and HUD paths",
+        "body": "The base project targets the instrument cluster area that BYD already exposes to third-party apps, and the windshield navigation outputs. Both paths are kept in Car++ for cars that have them.",
+        "points": [
+          "Cluster projection is opt-in per car and off by default.",
+          "Where the cluster is not shared with apps, the setting reports the feature as unavailable rather than failing.",
+          "These paths are carried over and are not yet verified with Car++'s protocol stack — see the status table."
+        ]
+      }
+    ],
+    "specTitle": "Status at a glance",
+    "specColumns": [
+      "Capability",
+      "Status",
+      "Notes"
+    ],
+    "specRows": [
+      [
+        "ICCOA CarLink session over the air",
+        "Verified on hardware",
+        "Newland NLS-MT9055-GL, Android 11, arm64"
+      ],
+      [
+        "Pairing code shown and re-advertised",
+        "Verified on hardware",
+        "Survives a cold start; 30-second watchdog confirmed"
+      ],
+      [
+        "BYD instrument cluster mirror",
+        "Implemented, unverified",
+        "Carried over from the base project; no BYD unit available"
+      ],
+      [
+        "BYD windshield HUD navigation",
+        "Implemented, unverified",
+        "Data path is wired; output not exercised on a car"
+      ]
+    ],
+    "specNote": "“Implemented, unverified” means the code path is present and compiles, but it has not been run on the hardware it targets. It is listed here rather than described as working.",
+    "update": "Updates & signing",
+    "updateText": "Car++ has its own package name and its own signing key, separate from the projects it was built on. Builds from this repository are signed by that key and will install over each other; they will not install over a build signed by another key, and vice versa.",
+    "follow": "Get release updates",
+    "followText": "New versions are published on the repository's releases page, together with the APK and its checksum.",
+    "notes": "Release notes",
+    "source": "Source code",
+    "feedback": "Report an issue",
+    "footer": "An independent community project, Not affiliated with, authorised by or endorsed by Xiaomi, OPPO, vivo, ICCOA, Google or BYD. Product and company names are trademarks of their respective owners.",
+    "guide": "Installation guide",
+    "supportScope": "Scope: this project is aimed at ICCOA CarLink phones on car head units — Xiaomi CarWith, OPPO Car+, vivo Jovi InCar and similar. Reports about other mirroring protocols are welcome but unsupported.",
+    "followAction": "Open releases"
+  },
+  "zh-Hans": {
+    "name": "简体中文",
+    "dir": "ltr",
+    "tag": "独立社区项目",
+    "badge": "公开发布",
+    "title": "小米 / OPPO / vivo 等 ICCOA CarLink 手机，\n直接上车机大屏。",
+    "intro": "手机上的导航、音乐与电话，落到这块车机屏幕上。Car++ 装在车机上，手机上的 CarWith、Car+ 车联或 Jovi InCar 照常用，两者在空中自己配对。",
+    "download": "下载 APK",
+    "install": "安装方法",
+    "promise": "车机上不需要配套应用，不需要转接盒等外接硬件，不需要 root。",
+    "requires": "把 Car++ 装到车机上，然后在手机上打开 CarWith、Car+ 车联或 Jovi InCar，在附近设备列表里选中本车机即可。配对全自动，6 位配对码会显示在车机屏幕上。",
+    "gallery": "为车机而做",
+    "captions": [
+      "车机待连时显示 6 位配对码。在手机上打开 CarWith、Car+ 车联或 Jovi InCar 并选中本车机即可 —— 车机侧无需按任何按钮。",
+      "连接、显示与声音，都收在同一套设置里。",
+      "关于页：版本号、升级说明与开源署名。"
+    ],
+    "setup": "装到车机上",
+    "steps": [
+      "下载 APK，通过你的车机允许的方式安装。若系统提示，请允许「安装未知来源应用」。",
+      "打开一次 Car++。首页会显示车机名称与一个 6 位配对码。",
+      "在手机上打开 CarWith、Car+ 车联或 Jovi InCar（或设置里的投屏入口），在附近设备列表里选中本车机。",
+      "在手机上点确认配对，手机画面即出现在车机上。请在停车状态下操作。"
+    ],
+    "adb": "完整安装文档",
+    "bssid": "若手机找不到车机，请保持手机蓝牙与 WiFi 开启、两块屏幕都亮着，然后重试。车机在未连接状态下每 30 秒重新广播一次，因此手机上被关掉的配对弹窗会自己回来。",
+    "whats": "更新内容",
+    "features": [
+      "**0.1.1 —— 文案更新。** ICCOA CarLink 是小米、OPPO、vivo 联合发起的标准。首页、「关于」「支持」页面与法务声明改为并列书写「小米 CarWith / OPPO Car+ 车联 / vivo Jovi InCar」，不再只提小米；并补上繁体中文首页文案。行为与 0.1.0 一致。",
+      "**无线接收 ICCOA CarLink 手机端**（小米 CarWith / OPPO Car+ 车联 / vivo Jovi InCar 等）—— 手机放在兜里或无线充电板上即可。",
+      "**配对码自动出现**，并带 30 秒重播看门狗：手机上误关的配对弹窗会自己回来，无需重启应用。",
+      "**完整继承基座的设置体系** —— 连接、显示、视频、输入、音频、备份、重置与诊断。",
+      "**继承仪表盘与 HUD 输出链路**，供开放了这些区域的车机使用；详见下方的真实状态。",
+      "**车机友好的首页**：大号配对码、刷新按钮、一个入口进设置。",
+      "**独立包名与独立签名密钥**，可与同车机上的其他接收端应用并存。"
+    ],
+    "compat": "兼容性",
+    "compatText": "**已验证：** 在 Newland NLS-MT9055-GL（Android 11 / arm64）上，应用可安装、可启动、可广播、可显示配对码并完成一次 CarWith 会话，且配对码在冷启动后依然有效。**尚未验证：** 在比亚迪或其他量产车机上的安装与配对，以及仪表盘 / HUD 投屏链路 —— 这些继承自基座，尚未与 Car++ 的协议栈一起在真实车机上跑过。若你正好在用这类设备，请把自己当作早期测试者，并把现象反馈给我们。",
+    "highlightsTitle": "这个项目实际做了什么",
+    "highlightsLead": "Car++ 是 ICCOA CarLink 的车机端接收器 —— 小米 CarWith、OPPO Car+ 车联、vivo Jovi InCar 走的都是这一套协议。它以既有的 Android Auto 车机端工程为基座，把手机侧协议换成这一套 —— 于是原本就稳的部分得以沿用，而真正需要实测的，是换掉的那一块。",
+    "cards": [
+      {
+        "eyebrow": "CarWith / Car+ / Jovi InCar",
+        "title": "让车机接住手机互联",
+        "body": "应用把自己广播成一台任何 ICCOA CarLink 手机都可以投到的车机。手机继续用它自己的地图、音乐与电话应用；手机侧不装任何东西，车机侧除了这个 APK 也不需要额外配置。",
+        "points": [
+          "车机广播，手机在附近设备列表里发现它。",
+          "6 位配对码显示在车机上，在手机上确认。",
+          "不需要账号、不需要转接盒、不需要数据线。"
+        ]
+      },
+      {
+        "eyebrow": "配对",
+        "title": "会自己回来的配对弹窗",
+        "body": "最要命的一种失败是：用户在手机上把配对弹窗关掉了。车机仍在广播，但手机不会自己再把弹窗弹出来。Car++ 在未连接时每 30 秒重新广播一次，从而让弹窗自己回来，且不需要重启任何东西。",
+        "points": [
+          "重播是「停-启」而不是重复调用：对一条已在广播中的链路重复广播会被忽略。",
+          "看门狗绝不打断进行中的会话。",
+          "首页另提供手动刷新按钮，做即时重试。"
+        ]
+      },
+      {
+        "eyebrow": "仪表与 HUD",
+        "title": "仪表盘与 HUD 链路",
+        "body": "基座面向比亚迪已向第三方应用开放的仪表区域，以及挡风玻璃导航输出。只要车机开放了这些区域，Car++ 就保留了这两条链路。",
+        "points": [
+          "仪表投屏按车机按需开启，默认关闭。",
+          "若车机未向应用开放仪表区域，设置项会报告「功能不可用」，而不是报错。",
+          "这两条链路是继承来的，尚未与 Car++ 的协议栈一起验证 —— 见状态表。"
+        ]
+      }
+    ],
+    "specTitle": "状态一览",
+    "specColumns": [
+      "能力",
+      "状态",
+      "说明"
+    ],
+    "specRows": [
+      [
+        "空中建立 ICCOA CarLink 会话",
+        "真机已验证",
+        "Newland NLS-MT9055-GL / Android 11 / arm64"
+      ],
+      [
+        "配对码显示与重播",
+        "真机已验证",
+        "冷启动后仍有效；30 秒看门狗已确认"
+      ],
+      [
+        "比亚迪仪表盘镜像",
+        "已实现，未验证",
+        "继承自基座；手上没有比亚迪车机"
+      ],
+      [
+        "比亚迪挡风玻璃 HUD 导航",
+        "已实现，未验证",
+        "数据链路已接好；输出未在真车上跑过"
+      ]
+    ],
+    "specNote": "「已实现，未验证」的意思是：这条代码路径已经写好并能编译，但还没有在它面向的硬件上运行过。我们把它如实列出来，而不是写成「可用」。",
+    "update": "升级与签名",
+    "updateText": "Car++ 有自己的包名与自己的签名密钥，与它所基于的项目相互独立。本仓库构建的版本由这把密钥签名，彼此之间可以覆盖升级；但无法与另一把密钥签名的版本互相覆盖。",
+    "follow": "获取版本更新",
+    "followText": "新版本会发布在仓库的 Releases 页，同时提供 APK 与校验值。",
+    "notes": "版本说明",
+    "source": "源代码",
+    "feedback": "反馈问题",
+    "footer": "独立的社区项目，与小米、OPPO、vivo、ICCOA、Google、比亚迪均无隶属、授权或合作关系。文中提及的产品与公司名称归各自所有者所有。",
+    "guide": "安装文档",
+    "supportScope": "范围说明：本项目面向车机上的 ICCOA CarLink 手机端 —— 小米 CarWith、OPPO Car+ 车联、vivo Jovi InCar 等。其他投屏协议的反馈同样欢迎，但不提供支持。",
+    "followAction": "打开发布页"
+  }
+}

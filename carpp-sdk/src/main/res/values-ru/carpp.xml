@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="da_brand">Car++</string>
+    <string name="da_tagline">CAR++ · В АВТОМОБИЛЕ</string>
+    <string name="da_headline">Ваш телефон на экране автомобиля.</string>
+    <string name="da_description">Выведите экран телефона на этот дисплей или на приборную панель / HUD.\nОткройте Xiaomi CarWith, OPPO Car+ или vivo Jovi InCar на телефоне и выберите этот автомобиль.</string>
+    <string name="da_connect">Начать сопряжение</string>
+    <string name="da_open">Открыть проекцию</string>
+    <string name="da_ready">Ожидание телефона</string>
+    <string name="da_connecting">Подключение к телефону…</string>
+    <string name="da_connected">Телефон подключён</string>
+    <string name="da_pin">Код сопряжения: %1$s</string>
+    <string name="da_pin_label">КОД СОПРЯЖЕНИЯ</string>
+    <string name="da_refresh_pin">Обновить код</string>
+    <string name="da_hint">Оставьте Bluetooth и Wi-Fi включёнными. Откройте Xiaomi CarWith, OPPO Car+ или vivo Jovi InCar на телефоне, выберите этот автомобиль и сверьте код сопряжения, показанный здесь.</string>
+    <string name="da_wireless">CAR++ CARLINK · CARWITH / CAR+ / JOVI</string>
+    <string name="da_usb">Сопряжение по Bluetooth</string>
+    <string name="da_usb_hint">Сначала выполните сопряжение с этим автомобилем в настройках Bluetooth телефона.</string>
+    <string name="da_settings">Настройки</string>
+    <string name="da_settings_hint">Дисплей, приборная панель и HUD.</string>
+    <string name="da_close">Главный экран автомобиля</string>
+    <string name="da_pair">Сопрячь телефон</string>
+    <string name="da_no_paired">Сначала выполните сопряжение телефона с автомобилем. Затем вернитесь сюда.</string>
+    <string name="da_bluetooth_off">Включите Bluetooth в настройках автомобиля для подключения телефона.</string>
+    <string name="da_system_settings">Настройки Bluetooth</string>
+    <string name="da_device">Телефон</string>
+    <string name="da_preferences">Ваша дорога — ваши правила.</string>
+    <string name="da_preferences_hint">Подключение, изображение и звук — всё в одном месте.</string>
+    <string name="da_automation">Автоматическое подключение</string>
+    <string name="da_automation_hint">Запуск вместе с автомобилем и повторное подключение к телефону.</string>
+    <string name="da_display">Экран и производительность</string>
+    <string name="da_display_hint">Размер изображения, частота кадров и настройки звука.</string>
+    <string name="da_permissions">Разрешения</string>
+    <string name="da_permissions_hint">Проверьте доступ к Bluetooth, микрофону и местоположению.</string>
+    <string name="da_about">О Car++</string>
+    <string name="da_about_hint">Версия, лицензии и благодарности авторам открытого ПО.</string>
+    <string name="da_saved_hint">Изменения настроек видео вступят в силу при следующем подключении.</string>
+    <string name="da_settings_subtitle">Настройте экран, звук и подключение.</string>
+    <string name="da_bluetooth_music">Музыка через Bluetooth автомобиля</string>
+    <string name="da_bluetooth_music_hint">Оставьте музыку в Bluetooth-проигрывателе автомобиля. Car++ не меняет его аудиофокус; звук навигации и ассистента остаётся доступен. После изменения переподключитесь.</string>
+    <string name="da_legal">Car++ — независимый сторонний проект с открытым исходным кодом, построенный на Car++ Pro и Car++. Он не связан с компанией BYD, а также с ICCOA, Google, Xiaomi, OPPO, vivo или владельцами их товарных знаков. ICCOA CarLink — стандарт подключения в салоне автомобиля, совместно учреждённый Xiaomi, OPPO и vivo; Xiaomi CarWith, OPPO Car+ и vivo Jovi InCar — три его клиента на телефоне, а Car++ — независимый приёмник на стороне автомобиля. Все названия и товарные знаки принадлежат их владельцам. Проект предоставляется только для обучения и технического обмена. Не используйте его в коммерческих целях; ответственность за последствия использования лежит на пользователе.</string>
+</resources>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        ICCOA CarLink 运行所必须的权限。这些权限漏掉时不会抛异常，只会让 SDK 静默失效
+        （手机扫不到车机 / 广播起不来），所以随协议模块一起声明，不依赖宿主补。
+        :carpp-sdk 的 manifest 里也有同名条目，manifest 合并会去重，不会冲突。
+    -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+    <uses-permission android:name="android.permission.LOCAL_MAC_ADDRESS" />
+    <uses-permission android:name="android.permission.NETWORK_SETTINGS" />
+    <uses-permission android:name="android.permission.NETWORK_STACK" />
+    <uses-permission android:name="android.permission.TETHER_PRIVILEGED" />
+    <uses-permission android:name="android.permission.OVERRIDE_WIFI_CONFIG" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.MANAGE_USB" />
+
+    <application>
+
+        <!--
+            Hosts the ICCOA CarLink phone stream. Not launched from the launcher:
+            MainActivity opens it once the ICCOA link reports Connected, or the user taps
+            "Open projection" on the standby screen. It owns the Surface the SDK casts into.
+
+            全限定类名：本模块的 namespace 与源码包名不同（源码沿用基座包名），
+            写相对名会被展开到 namespace 上而找不到这个类。
+        -->
+        <activity
+            android:name="com.carpp.sdk.icoca.IcocaProjectionActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboardHidden"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:theme="@style/AppTheme" />
+
+        <!--
+            ICCOA SDK 的四个 Service 必须显式注册：它们是 SDK dex 里的类，
+            不在 manifest 里声明，系统就起不来，而且【没有任何报错】——
+            表现为「手机完全扫不到车机」。
+
+            · ShareLinkService                 会话共享与链接协商
+            · ble.BluetoothLeService           BLE 广播 / 配对
+            · wifiap.WifiApService             SoftAP 直连（投屏数据通道之一）
+            · wifip2p.WifiP2pService           WiFi P2P 直连（投屏数据通道之二）
+            · MultiInstanceInvalidationService Room 跨进程失效（信任设备 Peer 表）
+
+            四个 com.share.connect.* 服务在 SDK dex 里都 extends android.app.Service
+            （已用 dex 解析器核过 class_defs），但 lint 看到的是纯签名存根——存根为了
+            保持可编译被抽平了继承链，于是把 "must extend android.app.Service" 报成误报，
+            故在此定点抑制。
+        -->
+        <service
+            android:name="com.share.connect.ShareLinkService"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+
+        <service
+            android:name="com.share.connect.ble.BluetoothLeService"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+
+        <service
+            android:name="com.share.connect.wifiap.WifiApService"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+
+        <service
+            android:name="com.share.connect.wifip2p.WifiP2pService"
+            android:exported="false"
+            tools:ignore="Instantiatable" />
+
+        <service
+            android:name="androidx.room.MultiInstanceInvalidationService"
+            android:directBootAware="true"
+            android:exported="false" />
+
+    </application>
+</manifest>

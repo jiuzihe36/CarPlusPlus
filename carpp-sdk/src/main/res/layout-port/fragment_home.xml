@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Portrait variant of the Car++ standby screen.
+
+  Same buttonless, self-refreshing pairing-code design as the landscape layout in
+  `layout/fragment_home.xml`, restacked into a single column. The view ids must stay in sync with
+  that file — HomeFragment looks up `pairing_code_block` / `pairing_code` on both.
+-->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/da_background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="32dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:importantForAccessibility="no"
+                android:src="@mipmap/ic_launcher" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/da_brand"
+                android:textColor="@color/da_text"
+                android:textSize="26sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/exit_button"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="56dp"
+                android:text="@string/da_close"
+                android:textColor="@color/da_muted" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:letterSpacing="0.16"
+                android:text="@string/da_tagline"
+                android:textColor="@color/da_accent"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/da_headline"
+                android:textColor="@color/da_text"
+                android:textSize="34sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:lineSpacingExtra="6dp"
+                android:text="@string/da_description"
+                android:textColor="@color/da_muted"
+                android:textSize="18sp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:background="@drawable/da_card"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.1"
+                    android:text="@string/da_wireless"
+                    android:textColor="@color/da_accent"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/connection_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:accessibilityLiveRegion="polite"
+                    android:text="@string/da_ready"
+                    android:textColor="@color/da_text"
+                    android:textSize="24sp" />
+
+                <LinearLayout
+                    android:id="@+id/pairing_code_block"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:letterSpacing="0.1"
+                        android:text="@string/da_pin_label"
+                        android:textColor="@color/da_accent"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/pairing_code"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:fontFamily="monospace"
+                        android:letterSpacing="0.18"
+                        android:textColor="@color/da_text"
+                        android:textSize="52sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/refresh_pin_button"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="56dp"
+                    android:layout_marginTop="16dp"
+                    android:minWidth="0dp"
+                    android:text="@string/da_refresh_pin"
+                    android:textAllCaps="false"
+                    android:textColor="@color/da_accent"
+                    android:textSize="15sp"
+                    app:cornerRadius="16dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/wifi_button"
+                    android:layout_width="match_parent"
+                    android:layout_height="68dp"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center"
+                    android:text="@string/da_open"
+                    android:textAllCaps="false"
+                    android:textColor="@color/da_background"
+                    android:textSize="18sp"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/da_accent"
+                    app:cornerRadius="20dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:lineSpacingExtra="4dp"
+                    android:text="@string/da_hint"
+                    android:textColor="@color/da_muted"
+                    android:textSize="15sp" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="20dp"
+                android:importantForAccessibility="no"
+                android:src="@mipmap/ic_launcher" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/settings_button"
+                android:layout_width="match_parent"
+                android:layout_height="68dp"
+                android:layout_marginTop="12dp"
+                android:gravity="center"
+                android:text="@string/da_settings"
+                android:textAllCaps="false"
+                android:textColor="@color/da_text"
+                android:textSize="18sp"
+                app:backgroundTint="@color/da_surface"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_settings_white"
+                app:iconGravity="textStart"
+                app:iconPadding="12dp"
+                app:iconTint="@color/da_accent" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="@string/da_settings_hint"
+                android:textColor="@color/da_muted"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Legal footer: Car++ is an independent project, not a BYD / ICCOA / Xiaomi product. -->
+        <TextView
+            android:id="@+id/legal_footer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:alpha="0.7"
+            android:lineSpacingExtra="3dp"
+            android:text="@string/da_legal"
+            android:textColor="@color/da_muted"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>

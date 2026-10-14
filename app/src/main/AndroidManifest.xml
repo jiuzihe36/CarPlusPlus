@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    :app 是薄壳：源码、资源、JNI 全在 :carpp-sdk，协议实现在 :sdk-iccoa。
+
+    这里唯一要做的事，是把 Application 换成装配好 ICCOA 协议的那个子类
+    （:sdk-iccoa 的 PhoneLink 实现就是在这里注册进 SDK 的）。
+    其余组件（首页 / 投影页 / 仪表 Activity / 各 Service 与 Receiver）与全部权限
+    都来自被合并进来的库 manifest，不需要在这里重复声明。
+
+    换成别的协议时：把 android:name 指到你自己的 Application，在里面
+    PhoneLinkRegistry.install(你的 PhoneLinkProvider)，并从依赖里去掉 :sdk-iccoa。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:name="com.carpp.app.CarppApp"
+        tools:replace="android:name" />
+
+</manifest>

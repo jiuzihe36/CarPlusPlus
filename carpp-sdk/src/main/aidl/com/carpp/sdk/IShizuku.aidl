@@ -1,0 +1,1 @@
+package com.carpp.sdk;interface IShizuku {    int execShell(String command);}
