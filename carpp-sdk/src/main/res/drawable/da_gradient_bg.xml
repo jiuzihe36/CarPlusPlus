@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  首页深色渐变底（ICCOA 2.0 连接页气质）：顶部近黑，向下透出一点蓝紫，
+  与启动图标同一套配色。用 shape 渐变而不是位图 —— 车机分辨率不一，位图会被拉糊。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:endColor="#141A2E"
+        android:startColor="#0C111B"
+        android:type="linear" />
+</shape>

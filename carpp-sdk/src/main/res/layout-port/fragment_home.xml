@@ -4,13 +4,14 @@
 
   Same buttonless, self-refreshing pairing-code design as the landscape layout in
   `layout/fragment_home.xml`, restacked into a single column. The view ids must stay in sync with
-  that file — HomeFragment looks up `pairing_code_block` / `pairing_code` on both.
+  that file — HomeFragment looks up `pairing_code_block` / `pairing_code` on both, plus
+  `ring_progress` / `device_name` for the connection progress ring.
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/da_background"
+    android:background="@drawable/da_gradient_bg"
     android:fillViewport="true">
 
     <LinearLayout
@@ -172,14 +173,25 @@
                     android:textSize="15sp" />
             </LinearLayout>
 
-            <ImageView
-                android:layout_width="96dp"
-                android:layout_height="96dp"
+            <com.carpp.sdk.view.RingProgressView
+                android:id="@+id/ring_progress"
+                android:layout_width="240dp"
+                android:layout_height="240dp"
                 android:layout_gravity="center_horizontal"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="20dp"
-                android:importantForAccessibility="no"
-                android:src="@mipmap/ic_launcher" />
+                android:importantForAccessibility="no" />
+
+            <TextView
+                android:id="@+id/device_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:letterSpacing="0.12"
+                android:text="@string/da_tagline"
+                android:textColor="@color/da_muted"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/settings_button"

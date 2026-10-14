@@ -1,18 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Car++ standby screen.
+  Car++ 待机首页 · ICCOA 2.0 连接页气质
 
-  Deliberately buttonless, like HiCar / Honor CarLink: the car advertises itself continuously, so
-  there is nothing for the user to start. The pairing code appears on its own the instant the phone
-  begins pairing and disappears again once it is consumed or invalidated. The only control that
-  survives is a contextual "Open projection" button, shown solely while a phone is already
-  connected (so backing out of the projection screen is not a dead end).
+  仍是按钮less 设计（像 HiCar / Honor CarLink）：车机一直在广播，没什么要用户去「开始」的。
+  配对码在手机开始配对的那一刻自己出现，被消费或失效后自己消失。
+
+  唯一保留的两个按钮都是上下文相关的：
+    · 「刷新配对码」—— 未连接时出现（手机上误关弹窗后的手动重试）
+    · 「打开投屏」  —— 已连接时出现（否则从投屏页返回会走投不回去）
+  右侧的环形进度 = 连接阶段映射出的 0/33/66/100%，不是协议真给的百分比，
+  见 RingProgressView 的类注释。
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/da_background"
+    android:background="@drawable/da_gradient_bg"
     android:fillViewport="true">
 
     <LinearLayout
@@ -62,7 +65,7 @@
             android:paddingTop="24dp"
             android:paddingBottom="16dp">
 
-            <!-- Left: link status + the auto-issued pairing code -->
+            <!-- Left: 状态 + 自动出现的配对码 -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -121,8 +124,8 @@
                         android:textColor="@color/da_text"
                         android:textSize="24sp" />
 
-                    <!-- Auto pairing code. Visible only while the SDK has handed one out; the
-                         fragment toggles this whole block so the card does not jump on connect. -->
+                    <!-- 自动配对码：仅在 SDK 发过码时出现。
+                         整块切换而不是只切文字，卡片才不会在连上时跳一下。 -->
                     <LinearLayout
                         android:id="@+id/pairing_code_block"
                         android:layout_width="match_parent"
@@ -139,6 +142,7 @@
                             android:textColor="@color/da_accent"
                             android:textSize="13sp" />
 
+                        <!-- 6 位配对码：按 ICCOA 惯例分两组显示，行车中扫一眼更容易读 -->
                         <TextView
                             android:id="@+id/pairing_code"
                             android:layout_width="match_parent"
@@ -151,10 +155,8 @@
                             android:textStyle="bold" />
                     </LinearLayout>
 
-                    <!-- Manual retry for the pairing code. The link already re-broadcasts every
-                         30 seconds, but a phone whose dialog was dismissed will not come back on
-                         its own, and waiting out the cycle is a poor experience from the driver's
-                         seat. Hidden once connected (see HomeFragment.render). -->
+                    <!-- 手动重播配对码。链路每 30 秒自己重播一次，但手机上被关掉的弹窗
+                         不会自己回来，让司机等满一个周期体验很差。已连接后隐藏。 -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/refresh_pin_button"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -168,8 +170,7 @@
                         android:textSize="15sp"
                         app:cornerRadius="16dp" />
 
-                    <!-- Contextual only: appears when a phone is already connected, so leaving the
-                         projection screen does not strand the user on a screen with no way back. -->
+                    <!-- 上下文按钮：只在已连接时出现，否则从投屏页返回会走投不回去。 -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/wifi_button"
                         android:layout_width="match_parent"
@@ -195,27 +196,38 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <!-- Right: settings -->
+            <!-- Right: 连接进度环 + 设备名 + 设置 -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="40dp"
                 android:layout_weight="1"
+                android:gravity="center_horizontal"
                 android:orientation="vertical">
 
-                <ImageView
-                    android:layout_width="96dp"
-                    android:layout_height="96dp"
-                    android:layout_gravity="center_horizontal"
-                    android:layout_marginBottom="20dp"
-                    android:importantForAccessibility="no"
-                    android:src="@mipmap/ic_launcher" />
+                <com.carpp.sdk.view.RingProgressView
+                    android:id="@+id/ring_progress"
+                    android:layout_width="240dp"
+                    android:layout_height="240dp"
+                    android:importantForAccessibility="no" />
+
+                <TextView
+                    android:id="@+id/device_name"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:gravity="center"
+                    android:letterSpacing="0.12"
+                    android:text="@string/da_tagline"
+                    android:textColor="@color/da_muted"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/settings_button"
                     android:layout_width="match_parent"
                     android:layout_height="68dp"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="24dp"
                     android:gravity="center"
                     android:text="@string/da_settings"
                     android:textAllCaps="false"
@@ -239,7 +251,7 @@
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Legal footer: Car++ is an independent project, not a BYD / ICCOA / Xiaomi product. -->
+        <!-- 法务脚注：Car++ 是独立项目，不是比亚迪 / ICCOA / 小米的产品。 -->
         <TextView
             android:id="@+id/legal_footer"
             android:layout_width="match_parent"

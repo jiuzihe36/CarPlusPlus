@@ -17,6 +17,7 @@ import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.sdk.LinkPhase
 import com.carpp.sdk.sdk.LinkState
 import com.carpp.sdk.sdk.PhoneLinkRegistry
+import com.carpp.sdk.view.RingProgressView
 import kotlinx.coroutines.launch
 
 /**
@@ -86,6 +87,21 @@ class HomeFragment : Fragment() {
         }
         view.findViewById<TextView>(R.id.connection_status)?.text = status
 
+        // 进度环：阶段 → 百分比（协议没有真实进度，见 RingProgressView 类注释）。
+        view.findViewById<RingProgressView>(R.id.ring_progress)
+            ?.setProgress(progressPercentFor(state.phase))
+
+        // 车机侧的自定义名字，SDK 会在配对阶段发下来。
+        view.findViewById<TextView>(R.id.device_name)?.let { label ->
+            val name = state.carDeviceName
+            if (name.isNullOrBlank()) {
+                label.visibility = View.GONE
+            } else {
+                label.text = name
+                label.visibility = View.VISIBLE
+            }
+        }
+
         // Null-tolerant lookups: the layout has an orientation-specific variant, and a missing view
         // must never take the standby screen down while it is the only thing the driver can see.
         val code = state.pinCode
@@ -94,7 +110,8 @@ class HomeFragment : Fragment() {
             if (code.isNullOrBlank()) {
                 codeBlock.visibility = View.GONE
             } else {
-                view.findViewById<TextView>(R.id.pairing_code)?.text = code
+                // 6 位按 3+3 分组：行车中扫一眼比连续 6 位好读（见布局里的注释）。
+                view.findViewById<TextView>(R.id.pairing_code)?.text = groupPin(code)
                 codeBlock.visibility = View.VISIBLE
             }
         }
@@ -120,5 +137,23 @@ class HomeFragment : Fragment() {
         // Retained for existing automation entry points; self projection has no standby control.
         var forceSelfModeLaunch = false
         fun resetAutoStart() { forceSelfModeLaunch = false }
+
+        /**
+         * 连接阶段 → 环形进度百分比。
+         *
+         * ICCOA 只给四个阶段、不给百分比，所以这里按阶段定锚点：等待=1/3，配对=2/3，
+         * 已连=满。数字表达的是「走到哪一段」，不是协议承诺的剩余时间 ——
+         * 与其显示一个编造的倒计时，不如显示一个诚映射的进度。
+         */
+        fun progressPercentFor(phase: LinkPhase): Float = when (phase) {
+            LinkPhase.Idle -> 0f
+            LinkPhase.Advertising -> 33f
+            LinkPhase.Pairing -> 66f
+            LinkPhase.Connected -> 100f
+        }
+
+        /** 6 位码按 3+3 分组；位数不是 6 时原样返回，不做「修正」。 */
+        fun groupPin(pin: String): String =
+            if (pin.length == 6) pin.substring(0, 3) + " " + pin.substring(3) else pin
     }
 }
