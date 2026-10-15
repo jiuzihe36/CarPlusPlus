@@ -23,7 +23,6 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.location.GeofenceLocation
 import com.carpp.sdk.location.LocationHolder
 import com.carpp.sdk.utils.AppThemeManager
@@ -254,15 +253,11 @@ class MapPickerFragment : Fragment() {
 
     /**
      * Applies a place/coordinate change right away: re-evaluates the running app theme
-     * manager (recreates only if the appearance actually changed) and asks the service to
-     * re-send the Android Auto night mode. Does NOT rebuild the manager, to avoid a
-     * recreate loop.
+     * manager (recreates only if the appearance actually changed). Does NOT rebuild the
+     * manager, to avoid a recreate loop.
      */
     private fun applyThemeConfigChange() {
         App.appThemeManager?.forceRefresh()
-        requireContext().sendBroadcast(
-            Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE).setPackage(requireContext().packageName)
-        )
     }
 
     private fun save(name: String) {

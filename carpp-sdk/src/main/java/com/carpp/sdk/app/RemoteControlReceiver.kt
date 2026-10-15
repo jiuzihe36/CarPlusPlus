@@ -4,17 +4,27 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.view.KeyEvent
-import com.carpp.sdk.App
-import com.carpp.sdk.connection.CommManager
 import com.carpp.sdk.utils.AppLog
 
+/**
+ * 车机方控 / 媒体键广播的接入口。
+ *
+ * 它做两件事：
+ *  - 把 [Intent.ACTION_MEDIA_BUTTON] 的按键事件转成 [com.carpp.sdk.contract.KeyIntent] 广播，
+ *    宿主 App（或未来的协议实现）可以据此把按键回传给手机；
+ *  - 把收到的原始广播再播一条 `com.carpp.sdk.DEBUG_KEY`，供诊断页观察车机到底发了什么。
+ *
+ * 原来这里还有一段「把 next/play/pause 等命令通过 AAP 传输层发给手机」的逻辑，
+ * 那是 Android Auto 专用通道，随 AAP 一起删除；ICCOA 侧要回传按键走 SDK 的
+ * `UCarAdapter.sendKeyEvent()`（见 docs/ICCOA_SDK_INTEGRATION.md 的后续项）。
+ */
 class RemoteControlReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         AppLog.i("RemoteControlReceiver received: $action")
 
-        // Broadcast for UI debugging (KeymapFragment)
+        // Broadcast for UI debugging
         val debugIntent = Intent("com.carpp.sdk.DEBUG_KEY").apply {
             putExtra("action", action)
             intent.extras?.let { putExtras(it) }
@@ -22,90 +32,20 @@ class RemoteControlReceiver : BroadcastReceiver() {
         }
         context.sendBroadcast(debugIntent)
 
-        if (Intent.ACTION_MEDIA_BUTTON == action) {
-            val event = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
-            } else {
-                @Suppress("DEPRECATION")
-                intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
-            }
-            
-            event?.let {
-                AppLog.i("ACTION_MEDIA_BUTTON: " + it.keyCode + " (handled via MediaSession)")
-                // We no longer send to commManager here to prevent double-skips.
-                // The active MediaSession in AapService handles ACTION_MEDIA_BUTTON.
+        if (Intent.ACTION_MEDIA_BUTTON != action) return
 
-                // Also broadcast for the UI
-                val keyIntent = Intent(com.carpp.sdk.contract.KeyIntent.action).apply {
-                    putExtra(com.carpp.sdk.contract.KeyIntent.extraEvent, it)
-                    setPackage(context.packageName)
-                }
-                context.sendBroadcast(keyIntent)
-            }
+        val event = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT, KeyEvent::class.java)
         } else {
-            // Handle command-based intents (common on many Android Headunits)
-            val command = intent.getStringExtra("command") ?: intent.getStringExtra("action") ?: intent.getStringExtra("action_command")
+            @Suppress("DEPRECATION")
+            intent.getParcelableExtra(Intent.EXTRA_KEY_EVENT)
+        } ?: return
 
-            // Broadcast command for UI debug (if not already handled by ACTION_MEDIA_BUTTON block)
-            if (action != Intent.ACTION_MEDIA_BUTTON) {
-                val debugIntent = Intent("com.carpp.sdk.DEBUG_KEY").apply {
-                    putExtra("action", action)
-                    putExtra("command", command)
-                    intent.extras?.let { putExtras(it) }
-                    setPackage(context.packageName)
-                }
-                context.sendBroadcast(debugIntent)
-            }
-
-            val commManager = App.provide(context).commManager
-            if (commManager.connectionState.value !is CommManager.ConnectionState.TransportStarted) {
-                AppLog.i("RemoteControlReceiver: Transport not started, skipping command execution")
-                return
-            }
-
-            when (command) {
-                "next", "skip_next", "skip", "forward", "skip_forward" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_NEXT, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_NEXT, false, null, "remote-command")
-                }
-                "previous", "skip_previous", "prev", "rewind", "back", "skip_back", "skip_backward" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PREVIOUS, false, null, "remote-command")
-                }
-                "play", "start", "resume" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PLAY, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PLAY, false, null, "remote-command")
-                }
-                "pause", "stop" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PAUSE, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PAUSE, false, null, "remote-command")
-                }
-                "togglepause", "playpause", "play_pause", "media_play_pause" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE, false, null, "remote-command")
-                }
-                "mute", "volume_mute" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_VOLUME_MUTE, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_VOLUME_MUTE, false, null, "remote-command")
-                }
-                "voice", "mic", "microphone", "search" -> {
-                    commManager.sendKey(KeyEvent.KEYCODE_SEARCH, true, null, "remote-command")
-                    commManager.sendKey(KeyEvent.KEYCODE_SEARCH, false, null, "remote-command")
-                }
-                else -> {
-                    // Some headunits send a raw keycode as an int extra
-                    val extraKeyCode = intent.getIntExtra("keycode", -1)
-                        .takeIf { it > 0 }
-                        ?: intent.getIntExtra("key_code", -1).takeIf { it > 0 }
-                    if (extraKeyCode != null) {
-                        AppLog.i("RemoteControlReceiver: raw keycode=$extraKeyCode from command=$command")
-                        commManager.sendKey(extraKeyCode, true, null, "remote-command")
-                        commManager.sendKey(extraKeyCode, false, null, "remote-command")
-                    } else {
-                        AppLog.i("RemoteControlReceiver: Unknown command='$command' from action='$action'")
-                    }
-                }
-            }
+        AppLog.i("ACTION_MEDIA_BUTTON: ${event.keyCode}")
+        val keyIntent = Intent(com.carpp.sdk.contract.KeyIntent.action).apply {
+            putExtra(com.carpp.sdk.contract.KeyIntent.extraEvent, event)
+            setPackage(context.packageName)
         }
+        context.sendBroadcast(keyIntent)
     }
 }

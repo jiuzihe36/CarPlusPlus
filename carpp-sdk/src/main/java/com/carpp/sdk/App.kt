@@ -1,17 +1,13 @@
 package com.carpp.sdk
 
-import androidx.appcompat.app.AppCompatDelegate
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.UserManager
 import android.os.Build
-import androidx.core.content.ContextCompat
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.multidex.MultiDex
-import com.carpp.sdk.main.BackgroundNotification
-import com.carpp.sdk.aap.AapNavigation
-import com.carpp.sdk.ssl.ConscryptInitializer
 import com.carpp.sdk.utils.AppLog
 import com.carpp.sdk.utils.AppThemeManager
 import com.carpp.sdk.utils.Settings
@@ -33,14 +29,8 @@ open class App : Application() {
         super.onCreate()
         instance = this
 
-
-
         // Enable vector drawable support on older Android versions
         AppCompatDelegate.setCompatVectorFromResourcesEnabled(true)
-
-        if (ConscryptInitializer.isNeededForTls12()) {
-            ConscryptInitializer.initialize()
-        }
 
         // Root support
         component.suExecutor.register()
@@ -50,13 +40,11 @@ open class App : Application() {
             AppLog.init(settings, this) // Initialize AppLog with settings for conditional logging
 
             // Sync auto-start settings to device-protected storage so that
-            // BootCompleteReceiver, UsbAttachedActivity, and AutoStartReceiver
-            // can read them during locked boot (before user unlock)
+            // BootCompleteReceiver and AutoStartReceiver can read them during locked boot
+            // (before user unlock)
             Settings.syncAutoStartOnBootToDeviceStorage(this, settings.autoStartOnBoot)
-            Settings.syncAutoStartOnUsbToDeviceStorage(this, settings.autoStartOnUsb)
             Settings.syncAutoStartOnWifiToDeviceStorage(this, settings.autoStartOnWifi)
             Settings.syncAutoStartWifiSsidToDeviceStorage(this, settings.autoStartWifiSsid)
-            Settings.syncAutoStartBtMacsToDeviceStorage(this, settings.autoStartBluetoothDeviceMacs)
 
             // Apply app theme (runs the live manager when dynamic, or when a saved place
             // can force the app theme even over a static base).
@@ -66,39 +54,27 @@ open class App : Application() {
             AppLog.w("App started in Direct Boot mode (locked). Settings access deferred.")
         }
 
-        if (ConscryptInitializer.isAvailable()) {
-            AppLog.i("Conscrypt security provider is active")
-        } else if (ConscryptInitializer.isNeededForTls12()) {
-            AppLog.w("Conscrypt not available - TLS 1.2 may not work on this device")
-        }
-
-        AppLog.d( "native library dir ${applicationInfo.nativeLibraryDir}")
+        AppLog.d("native library dir ${applicationInfo.nativeLibraryDir}")
 
         File(applicationInfo.nativeLibraryDir).listFiles()?.forEach { file ->
-            AppLog.d( "   ${file.name}")
+            AppLog.d("   ${file.name}")
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(defaultChannel, "Headunit Service", NotificationManager.IMPORTANCE_LOW)
+            val serviceChannel = NotificationChannel(
+                defaultChannel, "Headunit Service", NotificationManager.IMPORTANCE_LOW
+            )
             serviceChannel.description = "Persistent service notification"
             serviceChannel.setShowBadge(false)
             component.notificationManager.createNotificationChannel(serviceChannel)
 
-            val mediaChannel = NotificationChannel(BackgroundNotification.mediaChannel, "Media Playback", NotificationManager.IMPORTANCE_LOW)
-            mediaChannel.setSound(null, null)
-            mediaChannel.setShowBadge(false)
-            component.notificationManager.createNotificationChannel(mediaChannel)
-
-            AapNavigation.createNotificationChannel(this)
-
-            val bootChannel = NotificationChannel(bootStartChannel, "Boot Auto-Start", NotificationManager.IMPORTANCE_HIGH)
+            val bootChannel = NotificationChannel(
+                bootStartChannel, "Boot Auto-Start", NotificationManager.IMPORTANCE_HIGH
+            )
             bootChannel.description = "Shown once after boot to open the app"
             bootChannel.setShowBadge(false)
             component.notificationManager.createNotificationChannel(bootChannel)
         }
-
-        // Register the main broadcast receiver safely for Android 14+ using ContextCompat
-        ContextCompat.registerReceiver(this, AapBroadcastReceiver(), AapBroadcastReceiver.filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
     private fun isUserUnlocked(): Boolean {
@@ -121,10 +97,10 @@ open class App : Application() {
         var instance: App? = null
             private set
 
-
         fun get(context: Context): App {
             return context.applicationContext as App
         }
+
         fun provide(context: Context): AppComponent {
             return get(context).component
         }

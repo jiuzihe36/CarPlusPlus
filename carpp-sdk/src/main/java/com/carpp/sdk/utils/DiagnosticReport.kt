@@ -37,7 +37,7 @@ object DiagnosticReport {
             appendLine("Android=${Build.VERSION.RELEASE}; API=${Build.VERSION.SDK_INT}")
             appendLine("Head unit: ${Build.MANUFACTURER} ${Build.MODEL}; board=${Build.BOARD}; build=${Build.DISPLAY}")
             appendLine("Wireless mode=${settings.wifiConnectionMode}; native transport=${settings.nativeApTransport}")
-            appendLine("Hotspot auto-enable=${settings.autoEnableHotspot}; hotspot state=${SoftApStateReader.read(context)}")
+            appendLine("Hotspot auto-enable=${settings.autoEnableHotspot}")
             appendLine("Hotspot name saved=${settings.hotspotSsid.isNotBlank()}; password saved=${settings.hotspotPassword.isNotEmpty()}")
             appendLine("Logging level=${settings.exporterLogLevel}; source=${settings.logSource}")
             appendLine("Saved credentials, network addresses and protocol payloads are omitted.")

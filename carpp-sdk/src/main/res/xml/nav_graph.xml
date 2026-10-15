@@ -8,20 +8,6 @@
         android:id="@+id/homeFragment"
         android:name="com.carpp.sdk.main.HomeFragment"
         android:label="@string/app_name">
-        <action
-            android:id="@+id/action_homeFragment_to_usbListFragment"
-            app:destination="@id/usbListFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right" />
-        <action
-            android:id="@+id/action_homeFragment_to_networkListFragment"
-            app:destination="@id/networkListFragment"
-            app:enterAnim="@anim/slide_in_right"
-            app:exitAnim="@anim/slide_out_left"
-            app:popEnterAnim="@anim/slide_in_left"
-            app:popExitAnim="@anim/slide_out_right" />
     </fragment>
 
     <fragment android:id="@+id/diagnosticsFragment" android:name="com.carpp.sdk.main.DiagnosticsFragment" android:label="Diagnostics" />
@@ -209,15 +195,7 @@
         android:name="com.carpp.sdk.main.LoadingScreenFragment"
         android:label="@string/loading_screen" />
 
-    <fragment
-        android:id="@+id/usbListFragment"
-        android:name="com.carpp.sdk.main.UsbListFragment"
-        android:label="@string/usb" />
 
-    <fragment
-        android:id="@+id/networkListFragment"
-        android:name="com.carpp.sdk.main.NetworkListFragment"
-        android:label="@string/wifi" />
 
     <fragment
         android:id="@+id/micSettingsFragment"

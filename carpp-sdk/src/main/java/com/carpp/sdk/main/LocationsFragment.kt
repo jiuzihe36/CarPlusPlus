@@ -12,7 +12,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.location.GeofenceLocation
 import com.carpp.sdk.main.settings.SettingItem
 import com.carpp.sdk.main.settings.SettingsAdapter

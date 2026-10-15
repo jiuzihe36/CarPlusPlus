@@ -13,8 +13,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import androidx.core.app.NotificationCompat
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.main.MainActivity
+import com.carpp.sdk.sdk.LinkPhase
+import com.carpp.sdk.sdk.PhoneLinkRegistry
 import com.carpp.sdk.utils.AppLog
 import com.carpp.sdk.utils.Settings
 import android.os.Build
@@ -56,20 +57,19 @@ class WifiAutoStartReceiver : BroadcastReceiver() {
             AppLog.d("WifiAutoStartReceiver: Checking WiFi: $currentSsid (Target: $targetSsid)")
 
             if (currentSsid.equals(targetSsid, ignoreCase = true)) {
-                AppLog.i("WifiAutoStartReceiver: MATCH! Starting AapService via WiFi Auto-start...")
+                AppLog.i("WifiAutoStartReceiver: MATCH! Starting Car++ via WiFi Auto-start...")
 
                 // Don't trigger if already connected
-                if (App.provide(context).commManager.isConnected) {
-                    AppLog.d("WifiAutoStartReceiver: Already connected to Android Auto. Ignoring event.")
+                if (PhoneLinkRegistry.link(context)?.state?.value?.phase == LinkPhase.Connected) {
+                    AppLog.d("WifiAutoStartReceiver: 手机已连上，忽略本次网络事件。")
                     return
                 }
 
-                // Start the service
-                val serviceIntent = Intent(context, AapService::class.java)
+                // Start the keep-alive service
                 try {
-                    ContextCompat.startForegroundService(context, serviceIntent)
+                    CarppService.start(context)
                 } catch (e: Exception) {
-                    AppLog.e("Failed to start AapService from background: ${e.message}")
+                    AppLog.e("Failed to start CarppService from background: ${e.message}")
                 }
 
                 val launchIntent = Intent(context, MainActivity::class.java).apply {

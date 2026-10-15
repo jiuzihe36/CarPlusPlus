@@ -11,7 +11,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.main.settings.SettingItem
 import com.carpp.sdk.main.settings.SettingsAdapter
 import com.carpp.sdk.utils.Settings
@@ -255,10 +254,6 @@ class QuickSettingsFragment : DialogFragment() {
                 val newOrientation = Settings.ScreenOrientation.fromInt(which) ?: Settings.ScreenOrientation.SYSTEM
                 settings.screenOrientation = newOrientation
                 settings.commit()
-                // Applied live: the projection activity re-reads the orientation on this broadcast.
-                requireContext().sendBroadcast(Intent(AapService.ACTION_ORIENTATION_CHANGED).apply {
-                    setPackage(requireContext().packageName)
-                })
                 dialog.dismiss()
                 updateSettingsList()
             }

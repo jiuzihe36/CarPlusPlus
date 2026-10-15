@@ -16,7 +16,6 @@ import android.widget.ViewFlipper
 import com.carpp.sdk.App
 import com.carpp.sdk.R
 import com.carpp.sdk.app.BaseActivity
-import com.carpp.sdk.decoder.VideoDecoder
 import com.carpp.sdk.utils.AppPermissions
 import com.carpp.sdk.utils.AppThemeManager
 import com.carpp.sdk.utils.LocaleHelper
@@ -603,7 +602,7 @@ class OnboardingActivity : BaseActivity() {
 
     private fun detectedDisplayText(): String {
         val m = realMetrics()
-        val hevc = VideoDecoder.isHevcSupported()
+        val hevc = com.carpp.sdk.utils.SystemOptimizer.isHevcSupported()
         val codec = if (hevc) "H.265" else "H.264"
         return getString(R.string.onb_display_detected, m.widthPixels, m.heightPixels, m.densityDpi, codec)
     }

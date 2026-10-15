@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.main.settings.SettingItem
 import com.carpp.sdk.main.settings.SettingsAdapter
 import com.carpp.sdk.utils.Settings
@@ -121,13 +120,8 @@ class MicSettingsFragment : Fragment() {
         pendingMicAutoGainControl?.let { settings.micAutoGainControl = it }
 
         if (requiresRestart) {
-            if (App.provide(requireContext()).commManager.isConnected) {
-                Toast.makeText(context, getString(R.string.stopping_service), Toast.LENGTH_SHORT).show()
-                val stopServiceIntent = Intent(requireContext(), AapService::class.java).apply {
-                    action = AapService.ACTION_STOP_SERVICE
-                }
-                ContextCompat.startForegroundService(requireContext(), stopServiceIntent)
-            }
+            // UCarConfig 是 init-once：麦克风这类协商参数要重连（重启应用）后才生效，如实告知。
+            Toast.makeText(context, getString(R.string.setup_saved_details_hint), Toast.LENGTH_SHORT).show()
         }
 
         hasChanges = false

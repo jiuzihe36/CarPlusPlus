@@ -3,8 +3,6 @@ package com.carpp.sdk.utils
 import android.content.Context
 import android.os.Build
 import android.util.DisplayMetrics
-import com.carpp.sdk.aap.protocol.proto.Control
-import com.carpp.sdk.decoder.VideoDecoder
 import kotlin.math.roundToInt
 
 object HeadUnitScreenConfig {
@@ -26,7 +24,9 @@ object HeadUnitScreenConfig {
     var forcedScale: Boolean = false
         private set
 
-    var negotiatedResolutionType: Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType = Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._800x480
+    /** 协商出来的码流分辨率（宽 x 高）。ICCOA 用它换算缩放/边距；协议侧由 UCarConfig 声明。 */
+    private var negotiatedW: Int = 800
+    private var negotiatedH: Int = 480
     var isResolutionLocked: Boolean = false
         private set
 
@@ -204,48 +204,16 @@ object HeadUnitScreenConfig {
 
     // Native standard resolution for a given panel size, mirroring the AUTO selection so the
     // resolution cap never advertises more than the panel warrants (issue #650).
-    /** Map a resolution class to the proto type for the current orientation (shared by the manual
-     * selection path and the panel cap, so both agree). */
-    private fun protoForResolution(
-        res: Settings.Resolution,
-        portrait: Boolean
-    ): Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType {
-        val landscape = res.codec
-            ?: Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._800x480
-        if (!portrait) return landscape
-        return when (res) {
-            Settings.Resolution._800x480 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._720x1280
-            Settings.Resolution._1280x720 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._720x1280
-            Settings.Resolution._1920x1080 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1080x1920
-            Settings.Resolution._2560x1440 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1440x2560
-            Settings.Resolution._3840x2160 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._2160x3840
-            else -> landscape
-        }
+    /** 把一个分辨率档位换算成实际的宽高（按显示方向决定横竖）。 */
+    private fun resolutionFor(res: Settings.Resolution, portrait: Boolean): Pair<Int, Int> {
+        val w = if (res == Settings.Resolution.AUTO) 800 else res.width
+        val h = if (res == Settings.Resolution.AUTO) 480 else res.height
+        return if (portrait) h to w else w to h
     }
 
-    /**
-     * The proto resolution the physical panel warrants, in the display's orientation. Delegates to
-     * SystemOptimizer.panelCeiling (the shared source of truth) so the runtime cap agrees with the
-     * settings "too high" warning and the DPI calculation (issue #767).
-     */
-    private fun autoResolutionForPanel(
-        w: Int,
-        h: Int,
-        portrait: Boolean,
-        canHevc: Boolean
-    ): Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType {
-        return protoForResolution(SystemOptimizer.panelCeiling(w, h, canHevc), portrait)
-    }
-
-    private fun pixelsOf(type: Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType): Long {
-        val s = type.toString().replace("_", "")
-        return try {
-            val parts = s.split("x")
-            parts[0].toLong() * parts[1].toLong()
-        } catch (e: Exception) {
-            0L
-        }
-    }
+    /** 面板本身值得的上限分辨率（与设置里的「分辨率过高」提示、DPI 计算同源）。 */
+    private fun autoResolutionForPanel(w: Int, h: Int, portrait: Boolean): Pair<Int, Int> =
+        resolutionFor(SystemOptimizer.panelCeiling(w, h, SystemOptimizer.isHevcSupported()), portrait)
 
     private fun recalculate() {
         // Calculate USABLE area
@@ -259,7 +227,6 @@ object HeadUnitScreenConfig {
 
         val selectedResolution = Settings.Resolution.fromId(currentSettings.resolutionId)
         val isPortraitDisplay = screenHeightPx > screenWidthPx
-        val canNegotiateHevc = canNegotiateHevcHighResolution()
 
         // 1. Determine base negotiated resolution
         if (isResolutionLocked) {
@@ -270,33 +237,20 @@ object HeadUnitScreenConfig {
                 AppLog.i("[UI_DEBUG] CarScreen: Orientation mismatch detected (Res: ${if(isPortraitRes) "P" else "L"}, Display: ${if(isPortraitDisplay) "P" else "L"}). DROPPING LOCK.")
                 unlockResolution()
             } else {
-                AppLog.i("[UI_DEBUG] CarScreen: RESOLUTION LOCKED to $negotiatedResolutionType. Usable area is ${screenWidthPx}x${screenHeightPx}. Skipping re-negotiation.")
+                AppLog.i("[UI_DEBUG] CarScreen: RESOLUTION LOCKED to ${negotiatedW}x$negotiatedH. Usable area is ${screenWidthPx}x${screenHeightPx}. Skipping re-negotiation.")
             }
         }
         
         if (!isResolutionLocked && selectedResolution == Settings.Resolution.AUTO) {
-            if (isPortraitDisplay) {
-                negotiatedResolutionType = if (screenWidthPx > 720 || screenHeightPx > 1280) {
-                    Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1080x1920
-                } else {
-                    Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._720x1280
-                }
-            } else {
-                negotiatedResolutionType = when {
-                    screenWidthPx <= 800 && screenHeightPx <= 480 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._800x480
-                    (screenWidthPx >= 3840 || screenHeightPx >= 2160) && VideoDecoder.isHevcSupported() && Build.VERSION.SDK_INT >= 24 -> 
-                        Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._3840x2160
-                    (screenWidthPx >= 2560 || screenHeightPx >= 1440) && canNegotiateHevc && Build.VERSION.SDK_INT >= 24 ->
-                        Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._2560x1440
-                    screenWidthPx > 1280 || screenHeightPx > 720 -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1920x1080
-                    else -> Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1280x720
-                }
-            }
+            val (w, h) = autoResolutionForPanel(realScreenWidthPx, realScreenHeightPx, isPortraitDisplay)
+            negotiatedW = w
+            negotiatedH = h
         } else {
-            // Manual selection: map to the correct orientation via the shared helper.
-            negotiatedResolutionType = protoForResolution(
+            val (w, h) = resolutionFor(
                 selectedResolution ?: Settings.Resolution._800x480, isPortraitDisplay
             )
+            negotiatedW = w
+            negotiatedH = h
         }
 
         // Cap the negotiated resolution to what the physical panel warrants, so we never ask the
@@ -304,20 +258,23 @@ object HeadUnitScreenConfig {
         // every frame overloads the display scaler (MediaTek MDP) and stalls video (issue #650).
         // min(current, panelCeiling): only ever lowers, so explicit lower choices and HEVC-gated
         // 1440p/4K are never raised.
-        val preCapResolution = negotiatedResolutionType
-        val panelCeiling = autoResolutionForPanel(realScreenWidthPx, realScreenHeightPx, isPortraitDisplay, canNegotiateHevc)
-        if (pixelsOf(negotiatedResolutionType) > pixelsOf(panelCeiling)) {
-            negotiatedResolutionType = panelCeiling
+        val preCapWidth = negotiatedW
+        val preCapHeight = negotiatedH
+        val (capW, capH) = autoResolutionForPanel(realScreenWidthPx, realScreenHeightPx, isPortraitDisplay)
+        if (preCapWidth.toLong() * preCapHeight > capW.toLong() * capH) {
+            negotiatedW = capW
+            negotiatedH = capH
         }
         AppLog.i(
             "[RES_CAP] resolutionId=${currentSettings.resolutionId} " +
                 "realScreen=${realScreenWidthPx}x${realScreenHeightPx} usable=${screenWidthPx}x${screenHeightPx} " +
-                "portrait=$isPortraitDisplay locked=$isResolutionLocked chosen=$preCapResolution " +
-                "capped=$negotiatedResolutionType changed=${preCapResolution != negotiatedResolutionType}"
+                "portrait=$isPortraitDisplay locked=$isResolutionLocked " +
+                "chosen=${preCapWidth}x$preCapHeight capped=${negotiatedW}x$negotiatedH " +
+                "changed=${preCapWidth != negotiatedW || preCapHeight != negotiatedH}"
         )
 
         // 2. Perform scaling calculations (now safe because negotiatedResolutionType is set)
-        AppLog.i("[UI_DEBUG] CarScreen: usable area ${screenWidthPx}x${screenHeightPx}, using $negotiatedResolutionType")
+        AppLog.i("[UI_DEBUG] CarScreen: usable area ${screenWidthPx}x${screenHeightPx}, using ${negotiatedW}x$negotiatedH")
 
         if (screenHeightPx > screenWidthPx) {
             isSmallScreen = screenWidthPx <= 1080 && screenHeightPx <= 1920
@@ -355,32 +312,9 @@ object HeadUnitScreenConfig {
         return getNegotiatedWidth().toFloat() / getNegotiatedHeight().toFloat()
     }
 
-    fun getNegotiatedHeight(): Int {
-        val resString = negotiatedResolutionType.toString().replace("_", "")
-        return try {
-            resString.split("x")[1].toInt()
-        } catch (e: Exception) {
-            480
-        }
-    }
+    fun getNegotiatedHeight(): Int = negotiatedH
 
-    private fun canNegotiateHevcHighResolution(): Boolean {
-        if (VideoDecoder.isHevcSupported()) return true
-        if (currentSettings.videoCodec != VideoDecoder.CodecType.H265.settingsValue || !currentSettings.forceSoftwareDecoding) return false
-        return when (currentSettings.softwareVideoDecoder) {
-            Settings.SoftwareVideoDecoder.BUNDLED_FFMPEG -> VideoDecoder.isBundledHevcDecoderAvailable()
-            Settings.SoftwareVideoDecoder.DEVICE_MEDIACODEC -> VideoDecoder.isHevcDecoderAvailable(includeSoftware = true)
-        }
-    }
-
-    fun getNegotiatedWidth(): Int {
-        val resString = negotiatedResolutionType.toString().replace("_", "")
-        return try {
-            resString.split("x")[0].toInt()
-        } catch (e: Exception) {
-            800
-        }
-    }
+    fun getNegotiatedWidth(): Int = negotiatedW
 
     fun getHeightMargin(): Int {
         val margin = ((getAdjustedHeight() - screenHeightPx) / scaleFactor).roundToInt()
@@ -532,14 +466,14 @@ object HeadUnitScreenConfig {
 
     fun lockResolution() {
         if (!isResolutionLocked) {
-            AppLog.i("[UI_DEBUG] HeadUnitScreenConfig: Locking resolution at $negotiatedResolutionType")
+            AppLog.i("[UI_DEBUG] HeadUnitScreenConfig: Locking resolution at ${negotiatedW}x$negotiatedH")
             isResolutionLocked = true
         }
     }
 
     fun unlockResolution() {
         if (isResolutionLocked) {
-            AppLog.i("[UI_DEBUG] HeadUnitScreenConfig: Unlocking resolution (was $negotiatedResolutionType)")
+            AppLog.i("[UI_DEBUG] HeadUnitScreenConfig: Unlocking resolution (was ${negotiatedW}x$negotiatedH)")
             isResolutionLocked = false
         }
     }

@@ -18,7 +18,6 @@ import android.widget.Toast
 import android.widget.VideoView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.viewModels
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -26,10 +25,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapProjectionActivity
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.app.BaseActivity
-import com.carpp.sdk.connection.CommManager
+import com.carpp.sdk.app.CarppService
 import com.carpp.sdk.sdk.LinkPhase
 import com.carpp.sdk.sdk.PhoneLinkRegistry
 import com.carpp.sdk.utils.AppLog
@@ -41,7 +38,6 @@ import com.carpp.sdk.utils.SystemUI
 import com.bumptech.glide.Glide
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
@@ -54,8 +50,6 @@ class MainActivity : BaseActivity() {
     private var isOrientationReceiverRegistered = false
     private var isFinishReceiverRegistered = false
     private var isRecreateReceiverRegistered = false
-
-    private val viewModel: MainViewModel by viewModels()
 
     private var autoConnectWatchdog: Job? = null
     private var autoConnectKenBurnsAnim: ObjectAnimator? = null
@@ -97,7 +91,7 @@ class MainActivity : BaseActivity() {
 
     private val orientationReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == AapService.ACTION_ORIENTATION_CHANGED) {
+            if (intent.action == ACTION_ORIENTATION_CHANGED) {
                 AppLog.i("MainActivity: Orientation change broadcast received. Updating.")
                 requestedOrientation = Settings(this@MainActivity).screenOrientation.androidOrientation
             }
@@ -121,13 +115,12 @@ class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         requestedOrientation = Settings(this).screenOrientation.androidOrientation
         super.onCreate(savedInstanceState)
-        com.carpp.sdk.hud.BydNavigationOutputs.onAppOpened(applicationContext)
 
         logLaunchSource()
         clearBootLoopGuardIfOpenedByHand()
 
-        // If an Android Auto session is active, bring the projection activity to front
-        if (App.provide(this).commManager.isConnected && !App.isPiPActive) {
+        // 已经有会话在跑（服务把本页重新拉起等），直接把投影页带到前台。
+        if (App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected && !App.isPiPActive) {
             AppLog.i("MainActivity: Active session detected in onCreate, bringing projection to front")
             bringProjectionToFront()
 
@@ -152,16 +145,8 @@ class MainActivity : BaseActivity() {
         val appSettings = Settings(this)
         requestedOrientation = appSettings.screenOrientation.androidOrientation
 
-        // Sync UsbAttachedActivity component state with the listen for USB devices setting.
-        // This covers first install, app updates (manifest may reset component state),
-        // and ensures the USB system modal only appears when the user has opted in to listen for ALL USB devices.
-        lifecycleScope.launch(Dispatchers.IO) {
-            Settings.setUsbAttachedActivityEnabled(applicationContext, appSettings.listenForUsbDevices)
-        }
-
         // Start main service immediately to handle connections and wireless server
-        val serviceIntent = Intent(this, AapService::class.java)
-        ContextCompat.startForegroundService(this, serviceIntent)
+        CarppService.start(this)
 
         // Car++: bring up the ICCOA CarLink (Xiaomi CarWith) link. Gated on the Bluetooth
         // permissions — an SDK started without them advertises nothing at all, with no error to
@@ -206,9 +191,7 @@ class MainActivity : BaseActivity() {
 
         // Runtime permissions are requested by the setup wizard's permissions step on fresh
         // installs; for users who already finished onboarding we request them from checkSetupFlow().
-        viewModel.register()
         handleLaunchIntent(intent)
-        setupWifiDirectInfo()
 
         ContextCompat.registerReceiver(
             this, finishReceiver,
@@ -225,14 +208,6 @@ class MainActivity : BaseActivity() {
         )
         isRecreateReceiverRegistered = true
 
-        // USB auto-attach is the one auto-connect path that pre-launches MainActivity
-        // before any state transition occurs. HomeFragment-driven auto-connects will
-        // call beginAutoConnect() directly from their entry points.
-        if (savedInstanceState == null &&
-            intent?.getStringExtra(EXTRA_LAUNCH_SOURCE) == "USB auto-start") {
-            beginAutoConnect("USB auto-start", ConnectionUiMode.PILL)
-        }
-
         // Wire cancel affordances. Pill click and overlay cancel button both
         // route through the same cancellation path.
         findViewById<View>(R.id.auto_connect_pill)?.setOnClickListener {
@@ -242,7 +217,7 @@ class MainActivity : BaseActivity() {
             cancelAutoConnect()
         }
 
-        observeConnectionStateForOverlay()
+        observeLinkStateForOverlay()
         observeIcocaState()
     }
 
@@ -325,8 +300,10 @@ class MainActivity : BaseActivity() {
 
     /**
      * Mark that an automatic connection attempt has started and surface a status
-     * indicator over the home screen. Called from HomeFragment auto-connect paths
-     * and from MainActivity itself when launched via USB auto-attach.
+     * indicator over the home screen.
+     *
+     * 收尾由链路状态驱动（见 [observeLinkStateForOverlay]）：协议报 Connected 即成功，
+     * 退回 Advertising / Idle 即失败。
      *
      * @param reason Diagnostic label written to the log.
      * @param mode PILL for non-blocking background attempts (home buttons stay
@@ -334,36 +311,17 @@ class MainActivity : BaseActivity() {
      *        loading screen with cancel button).
      * @param customStatusText Optional override for the status text. If provided
      *        and the user has the show-text option enabled, this string is shown
-     *        instead of the generic "Android Auto is starting…". Used by the
-     *        Nearby selector to surface the picked device name.
+     *        instead of the generic "Android Auto is starting…".
      */
     @JvmOverloads
     fun beginAutoConnect(reason: String, mode: ConnectionUiMode, customStatusText: String? = null) {
         if (autoConnectInProgress) return
-        val commManager = App.provide(this).commManager
-        // If we are already past the connection phase, no indicator is needed.
-        if (commManager.isConnected) return
+        // 链路已经连上就没什么可指示的，不铺指示器。
+        if (App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected) return
         AppLog.i("Auto-connect: begin ($reason, mode=$mode)")
         autoConnectInProgress = true
         autoConnectMode = mode
-        // Seed hasAdvancedToActiveState from the current connection state. If
-        // something else (e.g. AapService responding to a USB attach) already
-        // moved the state into Connecting before we got here, the StateFlow
-        // will not re-emit it, so the observer would never flip the flag to
-        // true on its own. Without this seed, a subsequent failure transition
-        // to Disconnected would be misread as the initial Disconnected on
-        // launch and ignored until the 30 s watchdog kicks in.
-        val currentState = commManager.connectionState.value
-        hasAdvancedToActiveState = currentState is CommManager.ConnectionState.Connecting ||
-                currentState is CommManager.ConnectionState.Connected ||
-                currentState is CommManager.ConnectionState.StartingTransport
         autoConnectStatusText = customStatusText
-        // Hand the status text off to AapProjectionActivity so its own loading
-        // screen continues to show the same context-specific label after the
-        // handshake completes and AAP takes over the UI. AAP reads and clears
-        // this on its first launch; we always overwrite it here (even with
-        // null) so a stale value from a prior attempt can't leak across.
-        AapProjectionActivity.pendingStatusText = customStatusText
         showAutoConnectUi()
     }
 
@@ -386,64 +344,41 @@ class MainActivity : BaseActivity() {
     private fun cancelAutoConnect() {
         if (!autoConnectInProgress) return
         AppLog.i("Auto-connect: cancelled by user")
-        // disconnect() handles all states including the Connecting state where
-        // ACTION_DISCONNECT in AapService used to be a no-op. Setting state to
-        // Disconnected here also feeds the observer, but we end the UI
-        // immediately rather than waiting for the round-trip.
-        App.provide(this).commManager.disconnect()
+        // 只拆当前会话、继续广播，手机可以直接回来（不必重启 App）。
+        // 状态变化也会喂给观察者，但这里立刻收尾 UI，不等这一轮往返。
+        App.provide(this).phoneLink?.disconnectSession()
         endAutoConnect(success = false)
     }
 
     /**
-     * Subscribes to [CommManager.connectionState] to drive the auto-connect overlay.
+     * Subscribes to the phone link's state to drive the auto-connect overlay.
      *
-     * Show: when the overlay is requested via [beginAutoConnect] and the connection
-     * advances out of the initial Disconnected state.
-     *
-     * Hide: on terminal states (HandshakeComplete/TransportStarted = success — AAP
-     * projection activity will take over with its own overlay; Error/Disconnected =
-     * failure — drop back to HomeFragment so the user can intervene).
+     * 收尾口径与链路阶段一一对应：
+     *  - [LinkPhase.Connected] —— 会话建立，成功收尾（投影页随后接管画面）。
+     *  - [LinkPhase.Pairing] —— 协商中，保持指示器可见。
+     *  - [LinkPhase.Advertising] / [LinkPhase.Idle] —— 链路没连上，失败收尾，
+     *    退回首页让用户自己看着办。
      */
-    private fun observeConnectionStateForOverlay() {
+    private fun observeLinkStateForOverlay() {
+        val link = App.provide(this).phoneLink ?: return
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                App.provide(this@MainActivity).commManager.connectionState.collect { state ->
-                    when (state) {
-                        is CommManager.ConnectionState.Connecting,
-                        is CommManager.ConnectionState.Connected,
-                        is CommManager.ConnectionState.StartingTransport -> {
-                            hasAdvancedToActiveState = true
-                            // The pill/overlay should already be visible (set when auto-connect
-                            // was requested); ensure it is in case the request raced with
-                            // setContentView or the activity was recreated mid-attempt.
-                            if (autoConnectInProgress) {
-                                showAutoConnectUi()
-                            }
+                link.state.collect { state ->
+                    if (!autoConnectInProgress) return@collect
+                    when (state.phase) {
+                        LinkPhase.Connected -> {
+                            AppLog.i("Auto-connect overlay: link connected, handing off to projection")
+                            endAutoConnect(success = true)
                         }
-                        is CommManager.ConnectionState.HandshakeComplete,
-                        is CommManager.ConnectionState.TransportStarted -> {
-                            // AapProjectionActivity is launching (HandshakeComplete) or
-                            // has launched (TransportStarted). Hide our overlay so we
-                            // don't keep video/animation resources alive while AAP
-                            // covers us.
-                            if (autoConnectInProgress) {
-                                AppLog.i("Auto-connect overlay: handshake complete, handing off to projection")
-                                endAutoConnect(success = true)
-                            }
+                        LinkPhase.Pairing -> {
+                            // 协商中：指示器保持可见（顺带补一次 UI，防它与
+                            // setContentView 抢跑，或活动被重建后漏画）。
+                            showAutoConnectUi()
                         }
-                        is CommManager.ConnectionState.Error -> {
-                            if (autoConnectInProgress) {
-                                AppLog.w("Auto-connect overlay: connection error: ${state.message}")
-                                endAutoConnect(success = false)
-                            }
-                        }
-                        is CommManager.ConnectionState.Disconnected -> {
-                            // Initial Disconnected on app launch is normal; only treat
-                            // as failure if we previously advanced to an active state.
-                            if (autoConnectInProgress && hasAdvancedToActiveState) {
-                                AppLog.w("Auto-connect overlay: disconnected mid-attempt")
-                                endAutoConnect(success = false)
-                            }
+                        LinkPhase.Advertising,
+                        LinkPhase.Idle -> {
+                            AppLog.w("Auto-connect overlay: link not connected (phase=${state.phase})")
+                            endAutoConnect(success = false)
                         }
                     }
                 }
@@ -455,24 +390,12 @@ class MainActivity : BaseActivity() {
         autoConnectWatchdog?.cancel()
         autoConnectWatchdog = null
         autoConnectInProgress = false
-        hasAdvancedToActiveState = false
         autoConnectStatusText = null
-        if (!success) {
-            // Failure path: AAP is not going to launch, so clear the handover
-            // value so it can't appear on a later, unrelated connection. On
-            // success we leave it alone, AAP either already consumed it in
-            // onCreate or is about to.
-            AapProjectionActivity.pendingStatusText = null
-        }
         // Pill cleanup is cheap and safe to run regardless of mode.
         hideAutoConnectPill()
         if (success) {
-            // Launch the projection activity directly rather than waiting for the
-            // phone to request video focus (AapControl.gainVideoFocus() -> AapBroadcastReceiver).
-            // That broadcast only fires once the phone gets around to its VIDEO
-            // mediaSinkSetupRequest, which can lag well behind HandshakeComplete -
-            // during that gap this overlay had already hidden itself, leaving the
-            // user stuck on HomeFragment with only a relabeled button to notice.
+            // 直接把投影页拉到前台，不等手机那边请求视频焦点 —— 那一步可能比
+            // 链路连通晚很多，中间这段空白会让用户停在首页上不知发生了什么。
             bringProjectionToFront()
             // Hiding without an animation avoids the fade competing with the
             // activity transition.
@@ -764,23 +687,6 @@ class MainActivity : BaseActivity() {
         }
     }
 
-    private fun setupWifiDirectInfo() {
-        val tvInfo = findViewById<android.widget.TextView>(R.id.wifi_direct_info)
-        val settings = Settings(this)
-
-        lifecycleScope.launch {
-            AapService.wifiDirectName.collectLatest { name ->
-                val isHelperMode = settings.wifiConnectionMode == 2
-                if (isHelperMode && name != null) {
-                    tvInfo.text = "WiFi Direct: $name"
-                    tvInfo.visibility = View.VISIBLE
-                } else {
-                    tvInfo.visibility = View.GONE
-                }
-            }
-        }
-    }
-
     override fun onStart() {
         super.onStart()
     }
@@ -788,9 +694,9 @@ class MainActivity : BaseActivity() {
     override fun onStop() {
         super.onStop()
         // Free media resources whenever the activity is backgrounded. Covers user
-        // pressing Home, AapProjectionActivity coming to front (success), and
+        // pressing Home, the projection screen coming to front (success), and
         // navigating to SettingsActivity. The connection itself keeps running in
-        // AapService; this only tears down the visual indicator. The watchdog is
+        // CarppService; this only tears down the visual indicator. The watchdog is
         // intentionally NOT cancelled here so the flag is still cleared if every
         // remaining state transition happens while the activity is stopped.
         if (findViewById<View>(R.id.auto_connect_loading_overlay)?.visibility == View.VISIBLE) {
@@ -812,10 +718,10 @@ class MainActivity : BaseActivity() {
     /**
      * Releases the boot-loop guard, but only when a person opened the app.
      *
-     * The distinction matters: the service launches this activity itself on every boot auto-start
-     * ([AapService] passes "Boot auto-start"), so clearing unconditionally would reset the guard on
-     * exactly the runs it exists to count. Tapping the guard's own notification does count as
-     * opening it by hand — that is a person reading the notice and acting on it.
+     * 区别是有意义的：自启接收器会带着来源标记把本页拉起来（「WiFi auto-start」
+     * 「Bluetooth auto-start」），无条件清掉就等于在「没人看着」的那些启动上重置计数，
+     * 而计数存在的意义正是数它们。点开机循环保护自己的通知也算人手打开 ——
+     * 那是一个人读了提示并照做。
      */
     private fun clearBootLoopGuardIfOpenedByHand() {
         // No source at all is a launcher tap, which is as human as it gets.
@@ -851,56 +757,23 @@ class MainActivity : BaseActivity() {
         if (intent == null) return
 
         val intentData = intent.data
-        val intentAction = intent.action
 
-        if (intentAction == "com.carpp.sdk.ACTION_EXIT") {
+        // 退出：停掉保活服务，链路随之停下（广播也一并收摊）。
+        if (intent.action == "com.carpp.sdk.ACTION_EXIT") {
             AppLog.i("MainActivity: Received exit action")
-            val exitIntent = Intent(this, AapService::class.java).apply {
-                this.action = AapService.ACTION_STOP_SERVICE
-            }
-            ContextCompat.startForegroundService(this, exitIntent)
+            CarppService.stop(this)
             finishAffinity()
             return
         }
 
-        if (intentAction == AapService.ACTION_START_SELF_MODE || 
-           (intentData?.scheme == "headunit" && intentData.host == "selfmode")) {
-            AppLog.i("MainActivity: Forced self-mode start requested")
-            HomeFragment.forceSelfModeLaunch = true
-            val selfModeIntent = Intent(this, AapService::class.java).apply {
-                this.action = AapService.ACTION_START_SELF_MODE
-            }
-            ContextCompat.startForegroundService(this, selfModeIntent)
-        }
-
         if (intent.action == Intent.ACTION_VIEW) {
-            if (intentData?.scheme == "headunit" && intentData.host == "connect") {
-                val ip = intentData.getQueryParameter("ip")
-                if (!ip.isNullOrEmpty()) {
-                    AppLog.i("Received connect intent for IP: $ip")
-                    ContextCompat.startForegroundService(this, Intent(this, AapService::class.java).apply {
-                        action = AapService.ACTION_CONNECT_SOCKET
-                    })
-                    lifecycleScope.launch(Dispatchers.IO) { App.provide(this@MainActivity).commManager.connect(ip, 5277) }
-                } else {
-                    AppLog.i("Received connect intent without IP -> triggering last session auto-connect")
-                    val autoIntent = Intent(this, AapService::class.java).apply {
-                        action = AapService.ACTION_CHECK_USB
-                    }
-                    ContextCompat.startForegroundService(this, autoIntent)
-                }
-            } else if (intentData?.scheme == "headunit" && intentData.host == "disconnect") {
+            if (intentData?.scheme == "headunit" && intentData.host == "disconnect") {
                 AppLog.i("Received disconnect intent")
-                val stopIntent = Intent(this, AapService::class.java).apply {
-                    action = AapService.ACTION_DISCONNECT
-                }
-                ContextCompat.startForegroundService(this, stopIntent)
+                // 只拆会话、继续广播，手机可以直接回来（不必重启 App）。
+                App.provide(this).phoneLink?.disconnectSession()
             } else if (intentData?.scheme == "headunit" && intentData.host == "exit") {
                 AppLog.i("Received full exit intent via deep link")
-                val exitIntent = Intent(this, AapService::class.java).apply {
-                    action = AapService.ACTION_STOP_SERVICE
-                }
-                ContextCompat.startForegroundService(this, exitIntent)
+                CarppService.stop(this)
                 finishAffinity()
             }
         }
@@ -938,30 +811,28 @@ class MainActivity : BaseActivity() {
         ensureIcocaStarted()
 
         requestedOrientation = Settings(this).screenOrientation.androidOrientation
-        ContextCompat.registerReceiver(this, orientationReceiver, android.content.IntentFilter(AapService.ACTION_ORIENTATION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        ContextCompat.registerReceiver(this, orientationReceiver, android.content.IntentFilter(ACTION_ORIENTATION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         isOrientationReceiverRegistered = true
 
-        // If an Android Auto session is active, bring the projection activity to front
-        if (App.provide(this).commManager.isConnected && !App.isPiPActive && !AapProjectionActivity.isForeground) {
+        // 会话已建立就把投影页带到前台（例如从设置页返回）；投影页已经在前台时不要叠第二份。
+        if (App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected &&
+            !App.isPiPActive && PhoneLinkRegistry.provider()?.projectionForeground != true) {
             AppLog.i("MainActivity: Active session detected, bringing projection to front")
             bringProjectionToFront()
         }
     }
 
     /**
-     * The one place the projection relaunch intent is built. The guards stay at the call sites
-     * on purpose - they differ (post-connect must launch unconditionally, onResume checks
-     * foreground) - but the flag recipe must not drift between copies: this launch is what
-     * rebuilds the projection after singleTask semantics tore it down, and the torn-down
-     * instance's late surface callback is exactly the stale-owner case the decoder's ownership
-     * gate exists for.
+     * 把协议自带的投影页拉到前台 —— 全文件唯一构造这份 Intent 的地方。
+     *
+     * 守卫留在各调用点（口径不同：连上后无条件拉起，onResume 还要判投影页是否已在前台），
+     * 但 flag 配方只有这一份：投影页在 singleTask 语义下被拆掉后靠它重建，
+     * 两个副本各写一套迟早会漂移。
      */
     private fun bringProjectionToFront() {
-        val aapIntent = AapProjectionActivity.intent(this).apply {
-            putExtra(AapProjectionActivity.EXTRA_FOCUS, true)
-            addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
-        startActivity(aapIntent)
+        val projectionIntent = PhoneLinkRegistry.provider()?.projectionIntent(this) ?: return
+        projectionIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        startActivity(projectionIntent)
     }
 
     override fun onPause() {
@@ -1027,10 +898,8 @@ class MainActivity : BaseActivity() {
         )
 
         /**
-         * Hard upper bound for how long the auto-connect overlay may stay visible
-         * without the connection state advancing through the success path. Covers
-         * USB open hangs and silent AOA-mode-switch failures, which today produce
-         * no event for the observer to react to.
+         * 指示器的兜底时限：超过这个时间链路还没走到 Connected，就直接按失败收尾，
+         * 兜住「铺了指示器但状态再没跳变」这种没有事件可等的情况。
          */
         private const val AUTO_CONNECT_WATCHDOG_MS = 30_000L
 
@@ -1049,25 +918,20 @@ class MainActivity : BaseActivity() {
         @Volatile var autoConnectMode: ConnectionUiMode = ConnectionUiMode.OVERLAY
 
         /**
-         * Optional override for the status text (e.g. "Connecting to Pixel 8…"
-         * from the Nearby selector). When `null`, the default
+         * Optional override for the status text. When `null`, the default
          * `R.string.android_auto_starting` is used. Kept on the companion so
          * the customized text isn't lost if the activity is recreated mid
          * attempt.
          */
         @Volatile var autoConnectStatusText: String? = null
 
-        /**
-         * Tracks whether the connection attempt has reached an active state
-         * (Connecting/Connected/StartingTransport). Used by the connection
-         * observer to distinguish a genuine mid-attempt Disconnect (failure)
-         * from the initial Disconnected state on app launch (expected). Kept
-         * on the companion so a recreated activity does not lose this signal
-         * and mistakenly treat a real failure as the initial state.
-         */
-        @Volatile var hasAdvancedToActiveState: Boolean = false
-
         const val ACTION_RECREATE_MAIN = "com.carpp.sdk.ACTION_RECREATE_MAIN"
+
+        /**
+         * 设置页改完屏幕方向后广播的动作：本页收到就地改 `requestedOrientation`，
+         * 不必等重建。动作串沿用旧值，改设置页那一侧不用跟着动。
+         */
+        const val ACTION_ORIENTATION_CHANGED = "com.carpp.sdk.ACTION_ORIENTATION_CHANGED"
 
         /**
          * True once the projection screen has been opened for the current ICCOA session. Reset

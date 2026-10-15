@@ -7,13 +7,6 @@ import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.location.Location
 import android.os.Build
-import com.carpp.sdk.aap.MediaKeyRoutingPolicy
-import com.carpp.sdk.aap.VideoFaultInjector
-import com.carpp.sdk.decoder.DeviceMemoryProfile
-import com.carpp.sdk.aap.PlaybackFocusPolicy
-import com.carpp.sdk.aap.protocol.proto.Control
-import com.carpp.sdk.app.UsbAttachedActivity
-import com.carpp.sdk.connection.UsbDeviceCompat
 
 class Settings(private val context: Context) {
 
@@ -27,11 +20,6 @@ class Settings(private val context: Context) {
 
     private val prefs: SharedPreferences
         get() = _prefs ?: throw IllegalStateException("SharedPreferences in credential encrypted storage are not available until after user is unlocked")
-
-    fun isConnectingDevice(deviceCompat: UsbDeviceCompat): Boolean {
-        val allowDevices = prefs.getStringSet("allow-devices", null) ?: return false
-        return allowDevices.contains(deviceCompat.uniqueName)
-    }
 
     var allowedDevices: Set<String>
         get() = prefs.getStringSet("allow-devices", HashSet<String>())!!
@@ -303,11 +291,7 @@ class Settings(private val context: Context) {
     val logLevel: Int get() = exporterLogLevel.logLevel
 
     var viewMode: ViewMode
-        get() {
-            val stored = if (prefs.contains("view-mode")) prefs.getInt("view-mode", -1) else null
-            val value = com.carpp.sdk.view.ProjectionRendererPolicy.resolve(stored, Build.MODEL)
-            return ViewMode.fromInt(value) ?: ViewMode.TEXTURE
-        }
+        get() = ViewMode.fromInt(prefs.getInt("view-mode", ViewMode.TEXTURE.value)) ?: ViewMode.TEXTURE
         set(viewMode) {
             prefs.edit().putInt("view-mode", viewMode.value).apply()
         }
@@ -446,14 +430,6 @@ class Settings(private val context: Context) {
      * is no way to show a fix works except to wait for a reporter's next drive. Every injected fault
      * is logged, so a log captured with this left on cannot be mistaken for a log of a real fault.
      */
-    var debugVideoFaultInjection: VideoFaultInjector.Mode
-        get() {
-            if (!com.carpp.sdk.BuildConfig.DEBUG) return VideoFaultInjector.Mode.OFF
-            val value = prefs.getInt("debug-video-fault-injection", VideoFaultInjector.Mode.OFF.value)
-            return VideoFaultInjector.Mode.fromInt(value) ?: VideoFaultInjector.Mode.OFF
-        }
-        set(value) { prefs.edit().putInt("debug-video-fault-injection", value.value).apply() }
-
     /**
      * Overrides how much memory the video pipeline believes this device has.
      *
@@ -461,9 +437,9 @@ class Settings(private val context: Context) {
      * otherwise only reachable on hardware we do not have. Stored by name rather than by ordinal so
      * reordering the enum cannot silently change what a stored value means.
      */
-    var debugForceMemoryProfile: DeviceMemoryProfile?
-        get() = DeviceMemoryProfile.fromName(prefs.getString("debug-force-memory-profile", null))
-        set(value) { prefs.edit().putString("debug-force-memory-profile", value?.name).apply() }
+    var debugForceMemoryProfile: String?
+        get() = prefs.getString("debug-force-memory-profile", null)
+        set(value) { prefs.edit().putString("debug-force-memory-profile", value).apply() }
 
     /**
      * Puts the Native AA WiFi Direct group on 2.4 GHz instead of asking for 5 GHz.
@@ -526,12 +502,8 @@ class Settings(private val context: Context) {
 
     /** One in this many of the targeted messages is faulted. See [debugVideoFaultInjection]. */
     var debugVideoFaultRate: Int
-        get() = prefs.getInt("debug-video-fault-rate", VideoFaultInjector.DEFAULT_RATE)
-        set(value) {
-            prefs.edit()
-                .putInt("debug-video-fault-rate", value.coerceIn(VideoFaultInjector.MIN_RATE, VideoFaultInjector.MAX_RATE))
-                .apply()
-        }
+        get() = prefs.getInt("debug-video-fault-rate", 0)
+        set(value) { prefs.edit().putInt("debug-video-fault-rate", value.coerceAtLeast(0)).apply() }
 
     /**
      * Stop injecting after this many faults, or 0 to keep going for the whole session.
@@ -541,12 +513,8 @@ class Settings(private val context: Context) {
      * show whether the picture comes back. See [VideoFaultInjector.budget].
      */
     var debugVideoFaultBudget: Int
-        get() = prefs.getInt("debug-video-fault-budget", VideoFaultInjector.UNLIMITED_BUDGET)
-        set(value) {
-            prefs.edit()
-                .putInt("debug-video-fault-budget", value.coerceAtLeast(VideoFaultInjector.UNLIMITED_BUDGET))
-                .apply()
-        }
+        get() = prefs.getInt("debug-video-fault-budget", 0)
+        set(value) { prefs.edit().putInt("debug-video-fault-budget", value.coerceAtLeast(0)).apply() }
 
     var rightHandDrive: Boolean
         get() = prefs.getBoolean("right-hand-drive", false)
@@ -713,14 +681,6 @@ class Settings(private val context: Context) {
         get() = prefs.getBoolean("enable-audio-sink", true)
         set(value) { prefs.edit().putBoolean("enable-audio-sink", value).apply() }
 
-    /** BYD manages A2DP outside Android's normal Bluetooth profile reporting. */
-    var musicViaBluetooth: Boolean
-        get() = prefs.getBoolean("music-via-bluetooth", Build.MODEL == "DiLink5.1")
-        set(value) { prefs.edit().putBoolean("music-via-bluetooth", value).apply() }
-
-    val effectivePlaybackFocusMode: PlaybackFocusPolicy.Mode
-        get() = if (musicViaBluetooth) PlaybackFocusPolicy.Mode.NEVER else playbackFocusMode
-
     @Suppress("DEPRECATION")
     val displayRefreshRate: Float
         get() = (context.getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager)
@@ -729,26 +689,6 @@ class Settings(private val context: Context) {
     var staticAudioFocus: Boolean
         get() = prefs.getBoolean("static-audio-focus", false)
         set(value) { prefs.edit().putBoolean("static-audio-focus", value).apply() }
-
-    // Whether AA playback takes system audio focus, so another local player (typically the car
-    // radio) pauses while it runs. AUTO skips it when a Bluetooth media link is up, because the
-    // A2DP sink answers our focus grab by pausing the phone that is feeding us. See
-    // PlaybackFocusPolicy for the whole story; ALWAYS and NEVER are the manual overrides.
-    var playbackFocusMode: PlaybackFocusPolicy.Mode
-        get() = PlaybackFocusPolicy.Mode.fromInt(
-            prefs.getInt("playback-focus-mode", PlaybackFocusPolicy.Mode.AUTO.value)
-        )
-        set(value) { prefs.edit().putInt("playback-focus-mode", value.value).apply() }
-
-    // Whether the physical media buttons reach Android Auto, or are left to the Bluetooth side that
-    // may already act on the same press — two consumers of one button skip two tracks. See
-    // MediaKeyRoutingPolicy. ALWAYS is the stored zero value so an unset preference keeps the
-    // behaviour every existing install has.
-    var mediaKeyRouting: MediaKeyRoutingPolicy.Mode
-        get() = MediaKeyRoutingPolicy.Mode.fromInt(
-            prefs.getInt("media-key-routing", MediaKeyRoutingPolicy.Mode.ALWAYS.value)
-        )
-        set(value) { prefs.edit().putInt("media-key-routing", value.value).apply() }
 
     var separateAudioStreams: Boolean
         get() = prefs.getBoolean("separate-audio-streams", false)
@@ -949,13 +889,13 @@ class Settings(private val context: Context) {
         }
     }
 
-    enum class Resolution(val id: Int, val resName: String, val width: Int, val height: Int, val codec: Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType?) {
-        AUTO(0, "Auto",0, 0, null),
-        _800x480(1, "480p", 800, 480, Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._800x480),
-        _1280x720(2, "720p", 1280, 720, Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1280x720),
-        _1920x1080(3, "1080p", 1920, 1080, Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._1920x1080),
-        _2560x1440(4, "1440p (2K)", 2560, 1440, Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._2560x1440),
-        _3840x2160(5, "2160p (4K)", 3840, 2160, Control.Service.MediaSinkService.VideoConfiguration.VideoCodecResolutionType._3840x2160);
+    enum class Resolution(val id: Int, val resName: String, val width: Int, val height: Int) {
+        AUTO(0, "Auto", 0, 0),
+        _800x480(1, "480p", 800, 480),
+        _1280x720(2, "720p", 1280, 720),
+        _1920x1080(3, "1080p", 1920, 1080),
+        _2560x1440(4, "1440p (2K)", 2560, 1440),
+        _3840x2160(5, "2160p (4K)", 3840, 2160);
 
         companion object {
             private val map = values().associateBy(Resolution::id)
@@ -1354,19 +1294,6 @@ class Settings(private val context: Context) {
             }
         }
 
-
-        fun setUsbAttachedActivityEnabled(context: Context, enabled: Boolean) {
-            val component = ComponentName(context, UsbAttachedActivity::class.java)
-            val newState = if (enabled)
-                PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-            else
-                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
-            if (context.packageManager.getComponentEnabledSetting(component) != newState) {
-                context.packageManager.setComponentEnabledSetting(
-                    component, newState, PackageManager.DONT_KILL_APP
-                )
-            }
-        }
 
         /**
          * Reads the Bluetooth auto-start MAC from device-protected storage (API 24+),

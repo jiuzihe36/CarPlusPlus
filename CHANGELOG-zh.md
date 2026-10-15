@@ -1,3 +1,17 @@
+# Car++ 0.2.0 — 2026-10-15
+
+- **瘦身到只做 ICCOA CarLink**：删除 Android Auto（AAP 协议栈，约 12.2 万行）、AAP 专用解码 / 渲染 / TLS、
+  比亚迪仪表投屏与 HUD 输出，以及 AA 传输层。`carpp-sdk` 源码从 17.3 万行降到约 2.1 万行。
+- **新增触摸回传（UIBC）**：投屏页改用 SDK 自带的 `UCarSurfaceView`（`clickable="true"`），
+  并把投屏 View 的真实像素尺寸作为触摸坐标空间交给协议 —— 车机屏幕上点 / 划即可直接操作手机。
+- **新增前台保活服务 `CarppService`**：只负责把进程顶成前台（常驻通知），不再有车机模式 /
+  MediaSession / WiFi Direct 抢占等 AA 时代副作用。
+- 投屏页锁定横向：SDK 只在起投时接收触摸坐标空间，中途旋转会让坐标永久失配。
+- 删除 AA 专属设置项（媒体键路由、播放焦点、视频故障注入、内存档位、USB 设备白名单、
+  蓝牙 MAC 自启、比亚迪通道诊断等），设置体系保留连接 / 显示 / 视频 / 音频 / 备份 / 重置 / 诊断。
+- 构建：闭源 SDK 以标准 jar 依赖接入（`app/libs/icar-sdk.jar`），移除手工 dex 注入与
+  `playstore` 渠道。
+
 # Car++ 0.1.1 — 2026-10-13
 
 - 仅文案修正，行为与 0.1.0 完全一致。ICCOA CarLink 是小米、OPPO、vivo 联合发起的标准，因此首页、「关于」「支持」页面、法务声明与文档统一改为并列书写「小米 CarWith / OPPO Car+ 车联 / vivo Jovi InCar」，不再只提小米。

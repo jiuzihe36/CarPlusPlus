@@ -17,12 +17,13 @@ Car++ runs on the head unit, advertises itself as an ICCOA CarLink-capable car, 
 |---|---|---|
 | Wireless ICCOA CarLink session | Verified on-device | Phone stays in your pocket |
 | Pairing code + 30 s re-broadcast watchdog | Verified on-device | A dismissed phone dialog comes back on its own |
-| Settings (connection / display / video / input / audio / backup / reset / diagnostics) | Implemented | |
-| Instrument cluster mirroring (second display) | Implemented, off by default | Generic `Presentation` route |
-| HUD navigation output | Implemented, unverified | BYD-specific protocol path |
+| Mirroring | Verified on-device | The phone screen fills the head unit |
+| **Touch back-channel (UIBC)** | Verified on-device | Tap / swipe on the head unit to drive the phone; coordinates map from the projection view's real pixel size |
+| Foreground keep-alive | Verified on-device | `CarppService` posts a persistent notification so the session survives backgrounding / screen-off |
+| Settings (connection / display / video / audio / input / backup / reset / diagnostics) | Implemented | |
 
-> "Implemented, unverified" means the code path is written and compiles, but has not been run on
-> the hardware it targets. Listed honestly rather than advertised as working.
+> This app speaks ICCOA CarLink only. The Android Auto (AAP) stack and the BYD cluster / HUD
+> output were removed wholesale in 0.2.0 and are no longer shipped.
 
 ---
 
@@ -31,9 +32,9 @@ Car++ runs on the head unit, advertises itself as an ICCOA CarLink-capable car, 
 | Module | Type | Role |
 |---|---|---|
 | `:sdk-api` | library | **Contract**: `PhoneLink`, `LinkState`, `NavInfo`, `PhoneLinkRegistry`. Interfaces and data classes only |
-| `:carpp-sdk` | library | **The SDK**: connection, decoding, rendering, settings, diagnostics, cluster / HUD, JNI, built-in UI |
+| `:carpp-sdk` | library | **The SDK**: link contract consumers, settings, diagnostics, foreground keep-alive service, built-in UI (no protocol implementation of its own) |
 | `:sdk-iccoa` | library | **ICCOA CarLink protocol plugin** — just one `PhoneLink` implementation, replaceable wholesale |
-| `:app` | application | **Thin shell**: applicationId, flavours, signing, output naming, ICCOA dex injection |
+| `:app` | application | **Thin shell**: applicationId, signing, output naming |
 | `:contract` | library | Outbound Intent constants (`HeadUnitIntent`) |
 
 Dependencies always point one way: `app → sdk-iccoa → carpp-sdk → sdk-api`.
@@ -68,19 +69,19 @@ Requires JDK 17, Android SDK (compileSdk 36) and NDK 29.
 
 ## The ICCOA protocol itself
 
-The car-side ICCOA CarLink implementation is a **third-party proprietary dex**
-(`icar-sdk.dex`, ~7 MB) that is **not distributed here** and is not covered by this project's
+The car-side ICCOA CarLink implementation is a **third-party proprietary SDK**
+(`icar-sdk.jar`, ~5.3 MB) that is **not distributed here** and is not covered by this project's
 licence:
 
-- Compile time: signature-only stubs `sdk-iccoa/stubs/icar-sdk-stubs.jar` (`compileOnly`).
-- Run time: drop the dex at `app/libs/icar-sdk.dex`; the `:app` `injectIccoaDex` task appends it
-  to the APK as `classesN.dex`, then zipaligns and re-signs.
+- Wired in as a plain jar dependency: `implementation(files("libs/icar-sdk.jar"))`, so AGP handles
+  d8 / multidex / alignment / signing normally.
+- Drop the jar at `app/libs/icar-sdk.jar` for local builds (that path is git-ignored).
 
-**Without the dex everything still compiles, installs and runs — it just cannot connect to a phone.**
+**Without the jar everything still compiles, installs and runs — it just cannot connect to a phone.**
 
-Porting the ICCOA SDK means moving three things together: the dex, the four
+Porting the ICCOA SDK means moving three things together: the jar, the four
 `com.share.connect.*` services plus permissions in the manifest, and `androidx.room:room-runtime`.
-See [`sdk-iccoa/README.md`](sdk-iccoa/README.md).
+See [`sdk-iccoa/README.md`](sdk-iccoa/README.md) and [`app/libs/README.md`](app/libs/README.md).
 
 ---
 

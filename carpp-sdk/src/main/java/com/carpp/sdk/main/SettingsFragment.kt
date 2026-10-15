@@ -2,8 +2,6 @@ package com.carpp.sdk.main
 
 import android.app.AlertDialog
 import android.content.ActivityNotFoundException
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
@@ -26,11 +24,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
-import com.carpp.sdk.aap.MediaKeyRoutingPolicy
-import com.carpp.sdk.aap.PlaybackFocusPolicy
-import com.carpp.sdk.aap.VideoFaultInjector
-import com.carpp.sdk.decoder.DeviceMemoryProfile
 import com.carpp.sdk.main.settings.SettingItem
 import com.carpp.sdk.main.settings.SettingsAdapter
 import com.carpp.sdk.utils.AppLog
@@ -47,8 +40,6 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
-import com.carpp.sdk.connection.NativeAaHandshakeManager
-import com.carpp.sdk.utils.BluetoothHelper
 import androidx.lifecycle.lifecycleScope
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -77,17 +68,13 @@ class SettingsFragment : Fragment() {
     // Wireless items here only appear in Basic when the user connects wirelessly (see filterSettings).
     private val basicSettingIds = setOf(
         "staticBSSID", "appLanguage", "autoStartSettings", "autoConnectSettings", "resolution",
-        "dpiPixelDensity", "viewMode", "fpsLimit", "musicViaBluetooth", "enableAudioSink", "micSettings", "audioVolumeOffsets",
+        "dpiPixelDensity", "viewMode", "fpsLimit", "enableAudioSink", "micSettings", "audioVolumeOffsets",
         "keymap", "version", "about"
     )
 
     // Local state to hold changes before saving
     private var pendingUseGps: Boolean? = null
-    private var pendingBydNavigationEnabled: Boolean? = null
-    private var pendingClusterMapEnabled: Boolean? = null
-    private var pendingClusterMapTrigger: Settings.ClusterTrigger? = null
     private var pendingShowNavigationNotifications: Boolean? = null
-    private var pendingSyncMediaSessionAaMetadata: Boolean? = null
     private var pendingResolution: Int? = null
     private var pendingDpi: Int? = null
     private var pendingPixelAspectRatioE4: Int? = null
@@ -99,16 +86,13 @@ class SettingsFragment : Fragment() {
     private var pendingVideoCodec: String? = null
     private var pendingFpsLimit: Int? = null
     private var pendingBluetoothAddress: String? = null
-    private var pendingMusicViaBluetooth: Boolean = false
     private var pendingEnableAudioSink: Boolean? = null
     private var pendingStaticAudioFocus: Boolean? = null
-    private var pendingPlaybackFocusMode: PlaybackFocusPolicy.Mode? = null
     private var pendingSeparateAudioStreams: Boolean? = null
     private var pendingUseAacAudio: Boolean? = null
     private var pendingAttachHwDspEqualizer: Boolean? = null
     private var pendingMicInputSource: Int? = null
     private var pendingEnableRotary: Boolean? = null
-    private var pendingMediaKeyRouting: MediaKeyRoutingPolicy.Mode? = null
     private var pendingAudioLatencyMultiplier: Int? = null
     private var pendingUseLibusb: Boolean? = null
     private var pendingAudioQueueCapacity: Int? = null
@@ -158,14 +142,6 @@ class SettingsFragment : Fragment() {
     private val RESET_ITEM_ID = 1002
     private var pendingStorageAction: (() -> Unit)? = null
 
-    private val bluetoothPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-        if (isGranted) {
-            handleNativeAaSelection()
-        } else {
-            Toast.makeText(requireContext(), R.string.bt_permission_denied, Toast.LENGTH_LONG).show()
-        }
-    }
-
     private val storagePermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         val action = pendingStorageAction
         pendingStorageAction = null
@@ -211,11 +187,7 @@ class SettingsFragment : Fragment() {
 
         // Initialize local state with current values
         pendingUseGps = settings.useGpsForNavigation
-        pendingBydNavigationEnabled = settings.bydNavigationEnabled
-        pendingClusterMapEnabled = settings.clusterMapEnabled
-        pendingClusterMapTrigger = settings.clusterMapTrigger
         pendingShowNavigationNotifications = settings.showNavigationNotifications
-        pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingResolution = settings.resolutionId
         pendingDpi = settings.dpiPixelDensity
         pendingPixelAspectRatioE4 = settings.pixelAspectRatioE4
@@ -227,16 +199,13 @@ class SettingsFragment : Fragment() {
         pendingVideoCodec = settings.videoCodec
         pendingFpsLimit = settings.fpsLimit
         pendingBluetoothAddress = settings.bluetoothAddress
-        pendingMusicViaBluetooth = settings.musicViaBluetooth
         pendingEnableAudioSink = settings.enableAudioSink
         pendingStaticAudioFocus = settings.staticAudioFocus
-        pendingPlaybackFocusMode = settings.playbackFocusMode
         pendingSeparateAudioStreams = settings.separateAudioStreams
         pendingUseAacAudio = settings.useAacAudio
         pendingAttachHwDspEqualizer = settings.attachHwDspEqualizer
         pendingMicInputSource = settings.micInputSource
         pendingEnableRotary = settings.enableRotary
-        pendingMediaKeyRouting = settings.mediaKeyRouting
         pendingAudioLatencyMultiplier = settings.audioLatencyMultiplier
         pendingAudioQueueCapacity = settings.audioQueueCapacity
         pendingShowFpsCounter = settings.showFpsCounter
@@ -328,11 +297,7 @@ class SettingsFragment : Fragment() {
 
     private fun reloadPendingStateFromSettings() {
         pendingUseGps = settings.useGpsForNavigation
-        pendingBydNavigationEnabled = settings.bydNavigationEnabled
-        pendingClusterMapEnabled = settings.clusterMapEnabled
-        pendingClusterMapTrigger = settings.clusterMapTrigger
         pendingShowNavigationNotifications = settings.showNavigationNotifications
-        pendingSyncMediaSessionAaMetadata = settings.syncMediaSessionWithAaMetadata
         pendingResolution = settings.resolutionId
         pendingDpi = settings.dpiPixelDensity
         pendingPixelAspectRatioE4 = settings.pixelAspectRatioE4
@@ -343,15 +308,12 @@ class SettingsFragment : Fragment() {
         pendingVideoCodec = settings.videoCodec
         pendingFpsLimit = settings.fpsLimit
         pendingBluetoothAddress = settings.bluetoothAddress
-        pendingMusicViaBluetooth = settings.musicViaBluetooth
         pendingEnableAudioSink = settings.enableAudioSink
         pendingStaticAudioFocus = settings.staticAudioFocus
-        pendingPlaybackFocusMode = settings.playbackFocusMode
         pendingSeparateAudioStreams = settings.separateAudioStreams
         pendingUseAacAudio = settings.useAacAudio
         pendingAttachHwDspEqualizer = settings.attachHwDspEqualizer
         pendingEnableRotary = settings.enableRotary
-        pendingMediaKeyRouting = settings.mediaKeyRouting
         pendingAudioLatencyMultiplier = settings.audioLatencyMultiplier
         pendingAudioQueueCapacity = settings.audioQueueCapacity
         pendingShowFpsCounter = settings.showFpsCounter
@@ -452,21 +414,7 @@ class SettingsFragment : Fragment() {
         val languageChanged = pendingAppLanguage != settings.appLanguage
 
         pendingUseGps?.let { settings.useGpsForNavigation = it }
-        pendingBydNavigationEnabled?.let { settings.bydNavigationEnabled = it }
-        pendingClusterMapEnabled?.let {
-            settings.clusterMapEnabled = it
-            // The mirror is already running by this point, so it has to be told rather than waiting
-            // for the next connection; refresh() is idempotent and safe with no session.
-            com.carpp.sdk.cluster.ClusterProjectionController.refresh(requireContext())
-        }
-        pendingClusterMapTrigger?.let {
-            settings.clusterMapTrigger = it
-            // Same reason as the switch: the tier can be changed while the mirror is live, and only
-            // refresh() re-reads it and starts or stops the navigation watch loop accordingly.
-            com.carpp.sdk.cluster.ClusterProjectionController.refresh(requireContext())
-        }
         pendingShowNavigationNotifications?.let { settings.showNavigationNotifications = it }
-        pendingSyncMediaSessionAaMetadata?.let { settings.syncMediaSessionWithAaMetadata = it }
         pendingResolution?.let { settings.resolutionId = it }
         pendingDpi?.let { settings.dpiPixelDensity = it }
         pendingPixelAspectRatioE4?.let { settings.pixelAspectRatioE4 = it }
@@ -479,16 +427,13 @@ class SettingsFragment : Fragment() {
         pendingVideoCodec?.let { settings.videoCodec = it }
         pendingFpsLimit?.let { settings.fpsLimit = it }
         pendingBluetoothAddress?.let { settings.bluetoothAddress = it }
-        settings.musicViaBluetooth = pendingMusicViaBluetooth
         pendingEnableAudioSink?.let { settings.enableAudioSink = it }
         pendingStaticAudioFocus?.let { settings.staticAudioFocus = it }
-        pendingPlaybackFocusMode?.let { settings.playbackFocusMode = it }
         pendingSeparateAudioStreams?.let { settings.separateAudioStreams = it }
         pendingUseAacAudio?.let { settings.useAacAudio = it }
         pendingAttachHwDspEqualizer?.let { settings.attachHwDspEqualizer = it }
         pendingMicInputSource?.let { settings.micInputSource = it }
         pendingEnableRotary?.let { settings.enableRotary = it }
-        pendingMediaKeyRouting?.let { settings.mediaKeyRouting = it }
         pendingAudioLatencyMultiplier?.let { settings.audioLatencyMultiplier = it }
         pendingAudioQueueCapacity?.let { settings.audioQueueCapacity = it }
         pendingShowFpsCounter?.let { settings.showFpsCounter = it }
@@ -515,9 +460,6 @@ class SettingsFragment : Fragment() {
         pendingFakeSpeed?.let { settings.fakeSpeed = it }
         pendingUseLibusb?.let { settings.useLibusb = it }
 
-        val oldWifiMode = settings.wifiConnectionMode
-        val oldHelperStrategy = settings.helperConnectionStrategy
-        val oldBluetoothManagerServiceName = settings.bluetoothManagerServiceName
         pendingWifiConnectionMode?.let { settings.wifiConnectionMode = it }
         pendingHelperConnectionStrategy?.let { settings.helperConnectionStrategy = it }
         pendingWaitForWifi?.let { settings.waitForWifiBeforeWifiDirect = it }
@@ -550,27 +492,6 @@ class SettingsFragment : Fragment() {
             )
         }
 
-        if (oldWifiMode != settings.wifiConnectionMode ||
-            oldHelperStrategy != settings.helperConnectionStrategy ||
-            oldBluetoothManagerServiceName != settings.bluetoothManagerServiceName) {
-            val intent = Intent(requireContext(), AapService::class.java).apply {
-                val mode = settings.wifiConnectionMode
-                action = if (mode == 1 || mode == 2 || mode == 3)
-                    AapService.ACTION_START_WIRELESS else AapService.ACTION_STOP_WIRELESS
-            }
-            requireContext().startService(intent)
-        }
-
-        if (requiresRestart) {
-            if (App.provide(requireContext()).commManager.isConnected) {
-                Toast.makeText(context, getString(R.string.stopping_service), Toast.LENGTH_SHORT).show()
-                val stopServiceIntent = Intent(requireContext(), AapService::class.java).apply {
-                    action = AapService.ACTION_STOP_SERVICE
-                }
-                ContextCompat.startForegroundService(requireContext(), stopServiceIntent)
-            }
-        }
-
         // Reset change tracking
         hasChanges = false
         requiresRestart = false
@@ -587,11 +508,7 @@ class SettingsFragment : Fragment() {
     private fun checkChanges() {
         // Check for any changes
         val anyChange = pendingUseGps != settings.useGpsForNavigation ||
-                        pendingBydNavigationEnabled != settings.bydNavigationEnabled ||
-                        pendingClusterMapEnabled != settings.clusterMapEnabled ||
-                        pendingClusterMapTrigger != settings.clusterMapTrigger ||
                         pendingShowNavigationNotifications != settings.showNavigationNotifications ||
-                        pendingSyncMediaSessionAaMetadata != settings.syncMediaSessionWithAaMetadata ||
                         pendingResolution != settings.resolutionId ||
                         pendingDpi != settings.dpiPixelDensity ||
                         pendingPixelAspectRatioE4 != settings.pixelAspectRatioE4 ||
@@ -603,16 +520,13 @@ class SettingsFragment : Fragment() {
                         pendingVideoCodec != settings.videoCodec ||
                         pendingFpsLimit != settings.fpsLimit ||
                         pendingBluetoothAddress != settings.bluetoothAddress ||
-                        pendingMusicViaBluetooth != settings.musicViaBluetooth ||
                         pendingEnableAudioSink != settings.enableAudioSink ||
                         pendingStaticAudioFocus != settings.staticAudioFocus ||
-                        pendingPlaybackFocusMode != settings.playbackFocusMode ||
                         pendingSeparateAudioStreams != settings.separateAudioStreams ||
                         pendingUseAacAudio != settings.useAacAudio ||
                         pendingAttachHwDspEqualizer != settings.attachHwDspEqualizer ||
                         pendingMicInputSource != settings.micInputSource ||
                         pendingEnableRotary != settings.enableRotary ||
-                        pendingMediaKeyRouting != settings.mediaKeyRouting ||
                         pendingAudioLatencyMultiplier != settings.audioLatencyMultiplier ||
                         pendingAudioQueueCapacity != settings.audioQueueCapacity ||
                         pendingShowFpsCounter != settings.showFpsCounter ||
@@ -658,10 +572,8 @@ class SettingsFragment : Fragment() {
                           pendingForceSoftware != settings.forceSoftwareDecoding ||
                           pendingSoftwareVideoDecoder != settings.softwareVideoDecoder ||
                           pendingEnableRotary != settings.enableRotary ||
-                          pendingMusicViaBluetooth != settings.musicViaBluetooth ||
                         pendingEnableAudioSink != settings.enableAudioSink ||
                           pendingStaticAudioFocus != settings.staticAudioFocus ||
-                          pendingPlaybackFocusMode != settings.playbackFocusMode ||
                           pendingSeparateAudioStreams != settings.separateAudioStreams ||
                           pendingUseAacAudio != settings.useAacAudio ||
                           pendingAttachHwDspEqualizer != settings.attachHwDspEqualizer ||
@@ -676,10 +588,6 @@ class SettingsFragment : Fragment() {
 
         updateSaveButtonState()
     }
-
-    /** Reads a fault budget for the settings row, so 0 says what it means rather than showing "0". */
-    private fun describeFaultBudget(budget: Int): String =
-        if (budget == VideoFaultInjector.UNLIMITED_BUDGET) "Whole session" else "$budget faults"
 
     private fun updateSettingsList() {
         val app = App.provide(requireContext())
@@ -839,18 +747,9 @@ class SettingsFragment : Fragment() {
                     else -> 1
                 }
 
-                if (newMode == 3) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-                        ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                        bluetoothPermissionLauncher.launch(android.Manifest.permission.BLUETOOTH_CONNECT)
-                    } else {
-                        handleNativeAaSelection()
-                    }
-                } else {
-                    pendingWifiConnectionMode = newMode
-                    checkChanges()
-                    updateSettingsList()
-                }
+                pendingWifiConnectionMode = newMode
+                checkChanges()
+                updateSettingsList()
             }
         ))
 
@@ -939,52 +838,6 @@ class SettingsFragment : Fragment() {
                     }
                 ))
             }
-
-            val currentServiceName = pendingBluetoothManagerServiceName ?: "bluetooth_manager"
-            items.add(SettingItem.SettingEntry(
-                stableId = "bluetoothAdapterServiceName",
-                nameResId = R.string.bluetooth_adapter_label,
-                value = BluetoothHelper.getAdapterDescription(requireContext(), currentServiceName),
-                onClick = { _ ->
-                    val serviceNames = BluetoothHelper.listBluetoothServices()
-                    val displayNames = serviceNames.map { name ->
-                        BluetoothHelper.getAdapterDescription(requireContext(), name)
-                    }.toTypedArray()
-
-                    val selectedIndex = serviceNames.indexOf(currentServiceName).coerceAtLeast(0)
-
-                    MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                        .setTitle(R.string.select_bt_adapter)
-                        .setSingleChoiceItems(displayNames, selectedIndex) { dialog, which ->
-                            dialog.dismiss()
-                            pendingBluetoothManagerServiceName = serviceNames[which]
-                            checkChanges()
-                            updateSettingsList()
-                        }
-                        .show()
-                }
-            ))
-
-            val manualSecondary = pendingManualSecondaryBluetoothServiceName
-            items.add(SettingItem.SettingEntry(
-                stableId = "manualSecondaryBluetoothService",
-                nameResId = R.string.manual_secondary_bt_service_title,
-                value = if (manualSecondary.isNullOrEmpty()) getString(R.string.auto)
-                         else BluetoothHelper.getAdapterDescription(requireContext(), manualSecondary),
-                onClick = { _ ->
-                    DialogUtils.showTextInputDialogWithMessage(
-                        requireContext(),
-                        R.string.manual_secondary_bt_service_title,
-                        R.string.manual_secondary_bt_service_message,
-                        manualSecondary ?: "",
-                        { newVal ->
-                            pendingManualSecondaryBluetoothServiceName = newVal.trim()
-                            checkChanges()
-                            updateSettingsList()
-                        }
-                    )
-                }
-            ))
 
             items.add(SettingItem.ToggleSettingEntry(
                 stableId = "nativeWifiVersionExchange",
@@ -1200,61 +1053,8 @@ class SettingsFragment : Fragment() {
             ))
         }
 
-        if (com.carpp.sdk.hud.BydNavigationOutputs.available(requireContext())) {
-            items.add(SettingItem.ToggleSettingEntry(
-                stableId = "bydNavigation",
-                nameResId = R.string.byd_navigation_title,
-                descriptionResId = R.string.byd_navigation_description,
-                isChecked = pendingBydNavigationEnabled ?: false,
-                onCheckedChanged = { enabled ->
-                    pendingBydNavigationEnabled = enabled
-                    checkChanges()
-                    updateSettingsList()
-                }
-            ))
-        }
-
-        // Listed unconditionally, unlike the switch above: its whole purpose is to explain why that
-        // switch can be missing, so it cannot itself be gated on the same condition.
-        items.add(SettingItem.ActionButton(
-            stableId = "bydDiagnostics",
-            textResId = R.string.byd_diag_entry,
-            onClick = { showBydChannelDiagnostics() }
-        ))
-
-        items.add(SettingItem.ToggleSettingEntry(
-            stableId = "clusterMap",
-            nameResId = R.string.cluster_map_title,
-            descriptionResId = R.string.cluster_map_description,
-            isChecked = pendingClusterMapEnabled ?: false,
-            onCheckedChanged = { enabled ->
-                pendingClusterMapEnabled = enabled
-                checkChanges()
-                updateSettingsList()
-            }
-        ))
-
-        // Unconditional on purpose, unlike the BYD navigation switch: a control that hides itself is
-        // indistinguishable from a feature that was never built, and this one is the only way to say
-        // when the mirror may be on. Selected index maps straight onto ClusterTriggerPolicy.Trigger.
-        val clusterTriggerOptions = listOf(
-            getString(R.string.cluster_map_trigger_always),
-            getString(R.string.cluster_map_trigger_cruise),
-            getString(R.string.cluster_map_trigger_navigation),
-        )
-        items.add(SettingItem.SegmentedButtonSettingEntry(
-            stableId = "clusterMapTrigger",
-            nameResId = R.string.cluster_map_trigger_title,
-            options = clusterTriggerOptions,
-            selectedIndex = (pendingClusterMapTrigger ?: Settings.ClusterTrigger.ALWAYS).value
-                .coerceIn(0, clusterTriggerOptions.lastIndex),
-            onOptionSelected = { index ->
-                pendingClusterMapTrigger = Settings.ClusterTrigger.fromInt(index)
-                checkChanges()
-                updateSettingsList()
-            }
-        ))
-
+        // Unconditional on purpose: a control that hides itself is indistinguishable from a feature
+        // that was never built.
         items.add(SettingItem.ToggleSettingEntry(
             stableId = "showNavigationNotifications",
             nameResId = R.string.show_navigation_notifications,
@@ -1415,9 +1215,6 @@ class SettingsFragment : Fragment() {
                         settings.commit()
 
                         requireActivity().requestedOrientation = newOrientation.androidOrientation
-                        requireContext().sendBroadcast(Intent(AapService.ACTION_ORIENTATION_CHANGED).apply {
-                            setPackage(requireContext().packageName)
-                        })
 
                         checkChanges()
                         dialog.dismiss()
@@ -1605,63 +1402,8 @@ class SettingsFragment : Fragment() {
             }
         ))
 
-        // Media buttons only. The rotary controller, D-pad and the rest are never affected by this,
-        // which is the point: the head unit's Bluetooth side competes for the transport controls
-        // and for nothing else.
-        val mediaKeyModes = listOf(
-            MediaKeyRoutingPolicy.Mode.ALWAYS,
-            MediaKeyRoutingPolicy.Mode.AUTO,
-            MediaKeyRoutingPolicy.Mode.NEVER
-        )
-        val currentMediaKeyMode = pendingMediaKeyRouting ?: MediaKeyRoutingPolicy.Mode.ALWAYS
-        items.add(SettingItem.SegmentedButtonSettingEntry(
-            stableId = "mediaKeyRouting",
-            nameResId = R.string.media_key_routing,
-            options = listOf(
-                getString(R.string.media_key_routing_always),
-                getString(R.string.media_key_routing_auto),
-                getString(R.string.media_key_routing_never)
-            ),
-            selectedIndex = mediaKeyModes.indexOf(currentMediaKeyMode).coerceAtLeast(0),
-            onOptionSelected = { index ->
-                pendingMediaKeyRouting = mediaKeyModes.getOrElse(index) { MediaKeyRoutingPolicy.Mode.ALWAYS }
-                checkChanges()
-                updateSettingsList()
-            }
-        ))
-
-        items.add(SettingItem.InfoBanner(
-            stableId = "mediaKeyRoutingHint",
-            textResId = when (currentMediaKeyMode) {
-                MediaKeyRoutingPolicy.Mode.AUTO -> R.string.media_key_routing_auto_hint
-                MediaKeyRoutingPolicy.Mode.NEVER -> R.string.media_key_routing_never_hint
-                else -> R.string.media_key_routing_always_hint
-            }
-        ))
-
-        // Only worth saying once the setting is actually holding something back: the reason to reach
-        // for this is a doubled track skip, and the fear it raises is losing the rotary with it.
-        if (currentMediaKeyMode != MediaKeyRoutingPolicy.Mode.ALWAYS) {
-            items.add(SettingItem.InfoBanner(
-                stableId = "mediaKeyRoutingScopeHint",
-                textResId = R.string.media_key_routing_hint_common
-            ))
-        }
-
         // --- Audio Settings ---
         items.add(SettingItem.CategoryHeader("audio", R.string.category_audio))
-
-        items.add(SettingItem.ToggleSettingEntry(
-            stableId = "musicViaBluetooth",
-            nameResId = R.string.da_bluetooth_music,
-            descriptionResId = R.string.da_bluetooth_music_hint,
-            isChecked = pendingMusicViaBluetooth,
-            onCheckedChanged = { enabled ->
-                pendingMusicViaBluetooth = enabled
-                checkChanges()
-                updateSettingsList()
-            }
-        ))
 
         items.add(SettingItem.ToggleSettingEntry(
             stableId = "enableAudioSink",
@@ -1675,7 +1417,7 @@ class SettingsFragment : Fragment() {
             }
         ))
 
-        if (pendingEnableAudioSink == true && !pendingMusicViaBluetooth) {
+        if (pendingEnableAudioSink == true) {
             items.add(SettingItem.ToggleSettingEntry(
                 stableId = "staticAudioFocus",
                 nameResId = R.string.static_audio_focus,
@@ -1687,49 +1429,6 @@ class SettingsFragment : Fragment() {
                     updateSettingsList()
                 }
             ))
-
-            // Applies to both focus routes: the dynamic one that runs while an AA audio channel
-            // plays, and static mode's permanent grab at connect.
-            val focusModes = listOf(
-                PlaybackFocusPolicy.Mode.AUTO,
-                PlaybackFocusPolicy.Mode.ALWAYS,
-                PlaybackFocusPolicy.Mode.NEVER
-            )
-            val currentMode = pendingPlaybackFocusMode ?: PlaybackFocusPolicy.Mode.AUTO
-            items.add(SettingItem.SegmentedButtonSettingEntry(
-                stableId = "playbackFocusMode",
-                nameResId = R.string.playback_focus_mode,
-                options = listOf(
-                    getString(R.string.playback_focus_mode_auto),
-                    getString(R.string.playback_focus_mode_always),
-                    getString(R.string.playback_focus_mode_never)
-                ),
-                selectedIndex = focusModes.indexOf(currentMode).coerceAtLeast(0),
-                onOptionSelected = { index ->
-                    pendingPlaybackFocusMode = focusModes.getOrElse(index) { PlaybackFocusPolicy.Mode.AUTO }
-                    checkChanges()
-                    updateSettingsList()
-                }
-            ))
-
-            items.add(SettingItem.InfoBanner(
-                stableId = "playbackFocusModeHint",
-                textResId = when (currentMode) {
-                    PlaybackFocusPolicy.Mode.ALWAYS -> R.string.playback_focus_mode_always_hint
-                    PlaybackFocusPolicy.Mode.NEVER -> R.string.playback_focus_mode_never_hint
-                    else -> R.string.playback_focus_mode_auto_hint
-                }
-            ))
-
-            // The hints above are written for the dynamic path, which takes focus only while
-            // audio plays. Static mode takes it for the whole session, so say so rather than
-            // maintaining a second set of three.
-            if (pendingStaticAudioFocus == true) {
-                items.add(SettingItem.InfoBanner(
-                    stableId = "playbackFocusModeStaticHint",
-                    textResId = R.string.playback_focus_mode_static_hint
-                ))
-            }
         }
 
         items.add(SettingItem.ToggleSettingEntry(
@@ -1764,18 +1463,6 @@ class SettingsFragment : Fragment() {
             onCheckedChanged = { isChecked ->
                 pendingAttachHwDspEqualizer = isChecked
                 requiresRestart = true
-                checkChanges()
-                updateSettingsList()
-            }
-        ))
-
-        items.add(SettingItem.ToggleSettingEntry(
-            stableId = "syncMediaSessionAaMetadata",
-            nameResId = R.string.sync_media_session_aa_metadata,
-            descriptionResId = R.string.sync_media_session_aa_metadata_description,
-            isChecked = pendingSyncMediaSessionAaMetadata!!,
-            onCheckedChanged = { isChecked ->
-                pendingSyncMediaSessionAaMetadata = isChecked
                 checkChanges()
                 updateSettingsList()
             }
@@ -1910,30 +1597,6 @@ class SettingsFragment : Fragment() {
             }
         ))
 
-        // Lets a well-provisioned rig run the constrained video pipeline, which is otherwise only
-        // reachable on 1GB hardware we do not have. Applies on the next connection; the configure
-        // line reports the profile and marks it FORCED.
-        val memoryProfileNames = listOf("Measure") +
-            DeviceMemoryProfile.entries.map { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } }
-        val memoryProfileValues = listOf<DeviceMemoryProfile?>(null) + DeviceMemoryProfile.entries
-        items.add(SettingItem.SettingEntry(
-            stableId = "debugForceMemoryProfile",
-            nameResId = R.string.debug_force_memory_profile,
-            value = memoryProfileNames[memoryProfileValues.indexOf(settings.debugForceMemoryProfile).coerceAtLeast(0)],
-            searchKeywords = "memory profile low ram constrained buffers queue",
-            onClick = {
-                val currentIndex = memoryProfileValues.indexOf(settings.debugForceMemoryProfile).coerceAtLeast(0)
-                MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                    .setTitle(R.string.debug_force_memory_profile)
-                    .setSingleChoiceItems(memoryProfileNames.toTypedArray(), currentIndex) { dialog, which ->
-                        settings.debugForceMemoryProfile = memoryProfileValues[which]
-                        dialog.dismiss()
-                        updateSettingsList()
-                    }
-                    .show()
-            }
-        ))
-
         // Puts the Native AA P2P group on 2.4 GHz, which the rig can otherwise never run: the group
         // is requested as 5 GHz and any group that lands on 2.4 GHz is torn down and remade. Both of
         // those come off together - see NativeGroupBandPolicy. Applies on the next connection.
@@ -1975,72 +1638,6 @@ class SettingsFragment : Fragment() {
                 onCheckedChanged = { isChecked ->
                     settings.p2pLegacyFiveGhzUpperBand = isChecked
                     updateSettingsList()
-                }
-            ))
-        }
-
-        // Deliberately corrupts the video stream so the reassembler's failure paths can be
-        // exercised on a working unit. Applies on the next connection, and every injected fault is
-        // logged loudly - see VideoFaultInjector. Applied immediately rather than through the
-        // pending/save flow, like the log level below: this is a tool, not a preference.
-        val faultModes = VideoFaultInjector.Mode.entries
-        val faultModeNames = faultModes
-            .map { it.name.lowercase().replace('_', ' ').replaceFirstChar { c -> c.uppercase() } }
-            .toTypedArray()
-        items.add(SettingItem.SettingEntry(
-            stableId = "debugVideoFaultInjection",
-            nameResId = R.string.debug_video_fault_injection,
-            value = faultModeNames[faultModes.indexOf(settings.debugVideoFaultInjection).coerceAtLeast(0)],
-            searchKeywords = "fault injection corrupt fragment reassembly test",
-            onClick = {
-                val currentIndex = faultModes.indexOf(settings.debugVideoFaultInjection).coerceAtLeast(0)
-                MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                    .setTitle(R.string.debug_video_fault_injection)
-                    .setSingleChoiceItems(faultModeNames, currentIndex) { dialog, which ->
-                        settings.debugVideoFaultInjection = faultModes[which]
-                        dialog.dismiss()
-                        updateSettingsList()
-                    }
-                    .show()
-            }
-        ))
-
-        if (settings.debugVideoFaultInjection != VideoFaultInjector.Mode.OFF) {
-            val faultRates = listOf(10, 30, 100, 300, 1000, 3000)
-            val faultRateNames = faultRates.map { "1 in " + it }.toTypedArray()
-            items.add(SettingItem.SettingEntry(
-                stableId = "debugVideoFaultRate",
-                nameResId = R.string.debug_video_fault_rate,
-                value = "1 in " + settings.debugVideoFaultRate,
-                onClick = {
-                    val currentIndex = faultRates.indexOf(settings.debugVideoFaultRate).coerceAtLeast(0)
-                    MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                        .setTitle(R.string.debug_video_fault_rate)
-                        .setSingleChoiceItems(faultRateNames, currentIndex) { dialog, which ->
-                            settings.debugVideoFaultRate = faultRates[which]
-                            dialog.dismiss()
-                            updateSettingsList()
-                        }
-                        .show()
-                }
-            ))
-
-            val faultBudgets = listOf(VideoFaultInjector.UNLIMITED_BUDGET, 5, 10, 30, 100)
-            val faultBudgetNames = faultBudgets.map { describeFaultBudget(it) }.toTypedArray()
-            items.add(SettingItem.SettingEntry(
-                stableId = "debugVideoFaultBudget",
-                nameResId = R.string.debug_video_fault_budget,
-                value = describeFaultBudget(settings.debugVideoFaultBudget),
-                onClick = {
-                    val currentIndex = faultBudgets.indexOf(settings.debugVideoFaultBudget).coerceAtLeast(0)
-                    MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                        .setTitle(R.string.debug_video_fault_budget)
-                        .setSingleChoiceItems(faultBudgetNames, currentIndex) { dialog, which ->
-                            settings.debugVideoFaultBudget = faultBudgets[which]
-                            dialog.dismiss()
-                            updateSettingsList()
-                        }
-                        .show()
                 }
             ))
         }
@@ -2350,47 +1947,16 @@ class SettingsFragment : Fragment() {
         return result
     }
 
-    /**
-     * Renders the BYD output gates, with a copy action so the dump can be pasted into a report.
-     *
-     * The point of this screen is that it reads the very same probes the gate enforces, so it cannot
-     * report a rule other than the one actually applied.
-     */
-    private fun showBydChannelDiagnostics() {
-        val report = runCatching {
-            com.carpp.sdk.hud.BydChannelDiagnostics.render(requireContext())
-        }.getOrElse { error ->
-            AppLog.e("Cannot build BYD channel diagnostics", error)
-            error.toString()
-        }
-        MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-            .setTitle(R.string.byd_diag_title)
-            .setMessage(report)
-            .setPositiveButton(android.R.string.ok) { _, _ -> }
-            .setNeutralButton(R.string.byd_diag_copy) { _, _ -> copyBydChannelDiagnostics(report) }
-            .show()
-    }
-
-    private fun copyBydChannelDiagnostics(report: String) {
-        val clipboard = requireContext().getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
-        if (clipboard == null) {
-            AppLog.w("No clipboard service, BYD diagnostics left uncopied")
-            return
-        }
-        clipboard.setPrimaryClip(ClipData.newPlainText(getString(R.string.byd_diag_title), report))
-        Toast.makeText(requireContext(), R.string.byd_diag_copied, Toast.LENGTH_SHORT).show()
-    }
-
     private fun shouldShowItem(
         item: SettingItem,
         categoryId: String?,
         query: String,
         headerMatchesQuery: Boolean
     ): Boolean {
-        // Development fault injection and cosmetic tablet features are not product settings.
-        if (item.stableId.startsWith("debugVideoFault") || item.stableId in setOf(
+        // Cosmetic tablet features are not product settings.
+        if (item.stableId in setOf(
                 "loadingScreen", "support", "autoOptimize", "hudMirroring", "fakeSpeed",
-                "debugForceMemoryProfile", "vehicleInfoSettings")) return false
+                "vehicleInfoSettings")) return false
         // The bottom Save action is always relevant when present.
         if (item is SettingItem.ActionButton && item.stableId == "bottomSaveButton") return true
 
@@ -2737,24 +2303,9 @@ class SettingsFragment : Fragment() {
     private fun handleResetSettings(snapshot: ImportSnapshot, result: SettingsBackupManager.ResetResult) {
         val ctx = context ?: return
         settings = App.provide(ctx).settings
-        applyWirelessSideEffects(snapshot, ctx)
 
         // Re-evaluate app theme engine to immediately apply default theme
         AppThemeManager.reapply(ctx, settings)
-
-        // Notify Service about Night Mode changes immediately
-        val nightModeUpdateIntent = Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE).apply {
-            setPackage(ctx.packageName)
-        }
-        ctx.sendBroadcast(nightModeUpdateIntent)
-
-        if (SettingsBackupManager.requiresProjectionRestart(result.changedKeys) && App.provide(ctx).commManager.isConnected) {
-            Toast.makeText(ctx, ctx.getString(R.string.stopping_service), Toast.LENGTH_SHORT).show()
-            val stopServiceIntent = Intent(ctx, AapService::class.java).apply {
-                action = AapService.ACTION_STOP_SERVICE
-            }
-            ContextCompat.startForegroundService(ctx, stopServiceIntent)
-        }
 
         hasChanges = false
         requiresRestart = false
@@ -2944,24 +2495,9 @@ class SettingsFragment : Fragment() {
     private fun handleImportedSettings(snapshot: ImportSnapshot, result: SettingsBackupManager.ImportResult) {
         val ctx = context ?: return
         settings = App.provide(ctx).settings
-        applyWirelessSideEffects(snapshot, ctx)
 
         // Re-evaluate app theme engine to immediately apply static or dynamic theme
         AppThemeManager.reapply(ctx, settings)
-
-        // Notify Service about Night Mode changes immediately
-        val nightModeUpdateIntent = Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE).apply {
-            setPackage(ctx.packageName)
-        }
-        ctx.sendBroadcast(nightModeUpdateIntent)
-
-        if (SettingsBackupManager.requiresProjectionRestart(result.changedKeys) && App.provide(ctx).commManager.isConnected) {
-            Toast.makeText(ctx, getString(R.string.stopping_service), Toast.LENGTH_SHORT).show()
-            val stopServiceIntent = Intent(ctx, AapService::class.java).apply {
-                action = AapService.ACTION_STOP_SERVICE
-            }
-            ContextCompat.startForegroundService(ctx, stopServiceIntent)
-        }
 
         hasChanges = false
         requiresRestart = false
@@ -2977,19 +2513,6 @@ class SettingsFragment : Fragment() {
 
         if (shouldRecreateAfterImport(snapshot)) {
             activity?.recreate()
-        }
-    }
-
-    private fun applyWirelessSideEffects(snapshot: ImportSnapshot, context: Context = requireContext()) {
-        if (snapshot.wifiConnectionMode != settings.wifiConnectionMode ||
-            snapshot.helperConnectionStrategy != settings.helperConnectionStrategy ||
-            snapshot.bluetoothManagerServiceName != settings.bluetoothManagerServiceName) {
-            val intent = Intent(context, AapService::class.java).apply {
-                val mode = settings.wifiConnectionMode
-                action = if (mode == 1 || mode == 2 || mode == 3)
-                    AapService.ACTION_START_WIRELESS else AapService.ACTION_STOP_WIRELESS
-            }
-            context.startService(intent)
         }
     }
 
@@ -3587,55 +3110,6 @@ class SettingsFragment : Fragment() {
         )
         dialog.show()
         editView.requestFocus()
-    }
-
-    private fun handleNativeAaSelection() {
-        // An external Bluetooth module is not a "might not work" — the phone is bonded to a chip
-        // this app cannot write to, so say so plainly and name the evidence instead of offering
-        // the generic "try it anyway".
-        val externalBtEvidence = BluetoothHelper.externalBtEvidence
-        if (externalBtEvidence != null) {
-            MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                .setTitle(R.string.external_bt_nativeaa)
-                .setMessage(getString(R.string.external_bt_nativeaa_desc, externalBtEvidence))
-                // Selecting the mode is still allowed: on a unit with a second, reachable radio
-                // the user can name it under the secondary-Bluetooth setting, and Native mode
-                // will then run. Without that it stays switched off, and the log says why.
-                .setPositiveButton(android.R.string.ok) { dialog, _ ->
-                    pendingWifiConnectionMode = 3
-                    checkChanges()
-                    updateSettingsList()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-            return
-        }
-        if (NativeAaHandshakeManager.checkCompatibility(requireContext())) {
-            MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                .setTitle(R.string.supported_nativeaa)
-                .setMessage(R.string.supported_nativeaa_desc)
-                .setPositiveButton(android.R.string.ok) { dialog, _ ->
-                    pendingWifiConnectionMode = 3
-                    checkChanges()
-                    updateSettingsList()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        } else {
-            MaterialAlertDialogBuilder(requireContext(), R.style.DarkAlertDialog)
-                .setTitle(R.string.not_supported_nativeaa)
-                .setMessage(R.string.not_supported_nativeaa_desc)
-                .setPositiveButton(android.R.string.ok) { dialog, _ ->
-                    pendingWifiConnectionMode = 3
-                    checkChanges()
-                    updateSettingsList()
-                    dialog.dismiss()
-                }
-                .setNegativeButton(android.R.string.cancel, null)
-                .show()
-        }
     }
 
     companion object {

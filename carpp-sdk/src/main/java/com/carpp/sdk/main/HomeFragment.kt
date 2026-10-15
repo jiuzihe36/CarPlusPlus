@@ -13,7 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
+import com.carpp.sdk.app.CarppService
 import com.carpp.sdk.sdk.LinkPhase
 import com.carpp.sdk.sdk.LinkState
 import com.carpp.sdk.sdk.PhoneLinkRegistry
@@ -72,7 +72,7 @@ class HomeFragment : Fragment() {
         // Keep the AA service alive so the process (and with it the BLE advertisement) is not
         // reaped while the car sits on the standby screen.
         if (app.settings.autoStartOnBoot || app.settings.autoStartOnScreenOn) {
-            ContextCompat.startForegroundService(requireContext(), Intent(requireContext(), AapService::class.java))
+            CarppService.start(requireContext())
         }
     }
 

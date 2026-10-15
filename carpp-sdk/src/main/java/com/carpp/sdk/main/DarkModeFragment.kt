@@ -20,7 +20,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.main.settings.SettingItem
 import com.carpp.sdk.main.settings.SettingsAdapter
 import com.carpp.sdk.utils.AppThemeManager
@@ -266,19 +265,9 @@ class DarkModeFragment : Fragment(), SensorEventListener {
             }
         }
 
-        // Notify Service about Night Mode changes immediately
-        val nightModeUpdateIntent = Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE)
-        nightModeUpdateIntent.setPackage(requireContext().packageName)
-        requireContext().sendBroadcast(nightModeUpdateIntent)
-
         if (requiresRestart) {
-            if (App.provide(requireContext()).commManager.isConnected) {
-                Toast.makeText(context, getString(R.string.stopping_service), Toast.LENGTH_SHORT).show()
-                val stopServiceIntent = Intent(requireContext(), AapService::class.java).apply {
-                    action = AapService.ACTION_STOP_SERVICE
-                }
-                ContextCompat.startForegroundService(requireContext(), stopServiceIntent)
-            }
+            // UCarConfig 是 init-once：这类协商参数要重连（重启应用）后才生效，如实告知。
+            Toast.makeText(context, getString(R.string.setup_saved_details_hint), Toast.LENGTH_SHORT).show()
         }
 
         // Reset change tracking
@@ -380,10 +369,6 @@ class DarkModeFragment : Fragment(), SensorEventListener {
         settings.useFixedSunriseLocation = true
         pendingAppTheme?.let { settings.appTheme = it }
         pendingNightMode?.let { settings.nightMode = it }
-        // Ask the service to re-send the Android Auto night mode (safe, no activity recreate).
-        requireContext().sendBroadcast(
-            Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE).setPackage(requireContext().packageName)
-        )
         if (applyAppTheme) App.appThemeManager?.forceRefresh()
     }
 
@@ -398,10 +383,6 @@ class DarkModeFragment : Fragment(), SensorEventListener {
         pendingAppTheme?.let { settings.appTheme = it }
         pendingNightMode?.let { settings.nightMode = it }
         pendingLocationOutsideNight?.let { settings.locationOutsideNight = it }
-        // Re-send the Android Auto night mode (safe, no activity recreate).
-        requireContext().sendBroadcast(
-            Intent(AapService.ACTION_REQUEST_NIGHT_MODE_UPDATE).setPackage(requireContext().packageName)
-        )
         if (applyTheme) App.appThemeManager?.forceRefresh()
         // The selection is saved now, so it no longer counts as a pending change.
         checkChanges()

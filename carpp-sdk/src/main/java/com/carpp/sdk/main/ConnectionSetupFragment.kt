@@ -87,11 +87,6 @@ class ConnectionSetupFragment : Fragment() {
         if (pendingCarHotspotSetup || (settings.wifiConnectionMode == 3 && settings.nativeApTransport == 1)) {
             card(root, getString(R.string.setup_configure_hotspot)) { box ->
                 text(box, getString(R.string.setup_hotspot_instructions), 16)
-                text(box, when (com.carpp.sdk.utils.SoftApStateReader.read(requireContext())) {
-                    com.carpp.sdk.aap.SoftApState.ENABLED -> getString(R.string.setup_hotspot_on)
-                    com.carpp.sdk.aap.SoftApState.NOT_ENABLED -> getString(R.string.setup_hotspot_off)
-                    else -> getString(R.string.setup_hotspot_unknown)
-                }, 16)
                 button(box, getString(R.string.setup_open_car_hotspot_settings)) { openSystem(Intent("com.android.settings.WIFI_TETHER_SETTINGS")) }
                 button(box, if (pendingCarHotspotSetup) getString(R.string.setup_save_and_use_hotspot) else getString(R.string.setup_edit_hotspot, settings.hotspotSsid.ifEmpty { getString(R.string.setup_not_set) })) { editHotspot(pendingCarHotspotSetup) }
                 if (pendingCarHotspotSetup) text(box, getString(R.string.setup_hotspot_pending), 16)

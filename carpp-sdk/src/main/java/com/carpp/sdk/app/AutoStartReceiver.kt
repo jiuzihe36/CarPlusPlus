@@ -9,8 +9,9 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import com.carpp.sdk.App
 import com.carpp.sdk.R
-import com.carpp.sdk.aap.AapService
 import com.carpp.sdk.main.MainActivity
+import com.carpp.sdk.sdk.LinkPhase
+import com.carpp.sdk.sdk.PhoneLinkRegistry
 import com.carpp.sdk.utils.AppLog
 import com.carpp.sdk.utils.Settings
 import android.os.UserManager
@@ -30,8 +31,10 @@ class AutoStartReceiver : BroadcastReceiver() {
         
         // [FIX] Don't trigger auto-start if we are already connected!
         // This prevents activity restarts if BT reconnects during a session.
-        if (!isLocked && com.carpp.sdk.App.provide(context).commManager.isConnected) {
-            AppLog.d("AutoStartReceiver: Already connected to Android Auto. Ignoring BT event.")
+        val alreadyConnected =
+            PhoneLinkRegistry.link(context)?.state?.value?.phase == LinkPhase.Connected
+        if (!isLocked && alreadyConnected) {
+            AppLog.d("AutoStartReceiver: 手机已连上，忽略本次蓝牙事件。")
             return
         }
 
@@ -46,18 +49,15 @@ class AutoStartReceiver : BroadcastReceiver() {
             AppLog.i("BT Device connected: ${device?.name} (${device?.address})")
 
             if (device != null && targetMacs.contains(device.address)) {
-                AppLog.i("MATCH! Starting AapService via Bluetooth Auto-start...")
+                AppLog.i("MATCH! Starting Car++ via Bluetooth Auto-start...")
 
-                // Start the service to make the app alive. Explicit action so onStartCommand
-                // re-arms wireless mode even if the service process was already running from
-                // an earlier session (onCreate's init only runs once) — see ACTION_BT_AUTO_START.
-                val serviceIntent = Intent(context, AapService::class.java).setAction(AapService.ACTION_BT_AUTO_START)
+                // Start the keep-alive service so the app stays alive and the link re-advertises.
                 var serviceStarted = true
                 try {
-                    androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
+                    CarppService.start(context)
                 } catch (e: Exception) {
                     serviceStarted = false
-                    AppLog.e("Failed to start AapService from background: ${e.message}")
+                    AppLog.e("Failed to start CarppService from background: ${e.message}")
                 }
 
                 // Also attempt to start the UI (might be blocked on Android 10+ without special permission)

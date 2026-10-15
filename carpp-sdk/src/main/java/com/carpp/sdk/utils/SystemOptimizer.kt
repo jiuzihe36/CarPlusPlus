@@ -27,9 +27,11 @@ class SystemOptimizer(private val context: Context) {
         LARGE_11_PLUS(12.5f)
     }
 
-    fun checkH265HardwareSupport(): Boolean {
-        return com.carpp.sdk.decoder.VideoDecoder.isHevcSupported()
-    }
+    /**
+     * 车机 SoC 是否有 HEVC（H.265）硬解 —— 决定分辨率推荐能给到多高。
+     * 实例方法只是转发到 [Companion.isHevcSupported]，方便 UI 沿用原调用点。
+     */
+    fun checkH265HardwareSupport(): Boolean = isHevcSupported()
 
     fun calculateOptimalSettings(
         sizePreset: DisplaySizePreset,
@@ -118,6 +120,21 @@ class SystemOptimizer(private val context: Context) {
 
     companion object {
         /**
+         * 车机 SoC 是否有 HEVC（H.265）硬解。
+         *
+         * 只问系统的解码器列表，不依赖任何协议实现（原来问的是 AAP 的解码器）。
+         */
+        fun isHevcSupported(): Boolean = try {
+            android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS)
+                .codecInfos
+                .any { info ->
+                    !info.isEncoder && info.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) }
+                }
+        } catch (t: Throwable) {
+            false
+        }
+
+        /**
          * Small upward nudge on the computed density so the Android Auto UI reads well at the car
          * viewing distance (the panel is farther from the eyes than a phone). Kept modest so the
          * result stays near the ~150-170 dpi range that works well on head units instead of the
@@ -154,6 +171,6 @@ class SystemOptimizer(private val context: Context) {
          * truth) so the recommended label, the wizard and the runtime cap never diverge.
          */
         fun recommendedResolution(realWidthPx: Int, realHeightPx: Int): Settings.Resolution =
-            panelCeiling(realWidthPx, realHeightPx, com.carpp.sdk.decoder.VideoDecoder.isHevcSupported())
+            panelCeiling(realWidthPx, realHeightPx, isHevcSupported())
     }
 }

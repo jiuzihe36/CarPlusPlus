@@ -16,11 +16,13 @@ Car++ 装在车机上，把自己广播成一台支持 ICCOA CarLink 的车机�
 |---|---|---|
 | 无线建立 ICCOA CarLink 会话 | 真机已验证 | 手机放兜里或无线充电板上即可 |
 | 配对码显示 + 30 秒重播看门狗 | 真机已验证 | 手机上误关的配对弹窗会自己回来，不用重启应用 |
-| 完整设置体系 | 已实现 | 连接 / 显示 / 视频 / 输入 / 音频 / 备份 / 重置 / 诊断 |
-| 仪表盘投屏（第二屏） | 已实现、默认关闭 | 走通用 `Presentation` 路线，车机把仪表作为第二屏时可用 |
-| HUD 导航输出 | 已实现、未验证 | 比亚迪私有协议链路，手上没有对应车机 |
+| 投屏画面 | 真机已验证 | 手机画面整屏显示在车机上 |
+| **触摸回传（UIBC）** | 真机已验证 | 在车机屏幕上点/划直接操作手机；坐标按投屏 View 的真实像素尺寸换算 |
+| 前台保活 | 真机已验证 | `CarppService` 常驻通知，退到后台 / 息屏不掐会话 |
+| 设置体系 | 已实现 | 连接 / 显示 / 视频 / 音频 / 输入 / 备份 / 重置 / 诊断 |
 
-> 「已实现、未验证」= 代码路径已写好并能编译，但还没有在它面向的硬件上跑过。如实列出，不写成「可用」。
+> 本应用只做 ICCOA CarLink 一条链路。Android Auto（AAP 协议栈）与比亚迪仪表 / HUD 输出
+> 这两套代码已在 0.2.0 中整体删除，不再随包分发。
 
 ---
 
@@ -29,9 +31,9 @@ Car++ 装在车机上，把自己广播成一台支持 ICCOA CarLink 的车机�
 | 模块 | 类型 | 作用 |
 |---|---|---|
 | `:sdk-api` | library | **契约层**：`PhoneLink` / `LinkState` / `NavInfo` / `PhoneLinkRegistry`。只有接口和数据类 |
-| `:carpp-sdk` | library | **SDK 本体**：连接、解码、渲染、设置、诊断、仪表 / HUD、JNI、内建界面 |
+| `:carpp-sdk` | library | **SDK 本体**：链路接口消费、设置、诊断、前台保活服务、内建界面（不含任何具体协议实现） |
 | `:sdk-iccoa` | library | **ICCOA CarLink 协议插件**，只是 `PhoneLink` 的一种实现，可整体替换 |
-| `:app` | application | **薄壳**：applicationId、渠道、签名、输出命名、ICCOA dex 注入 |
+| `:app` | application | **薄壳**：applicationId、签名、输出命名 |
 | `:contract` | library | 对外 Intent 常量（`HeadUnitIntent`） |
 
 依赖方向永远是 `app → sdk-iccoa → carpp-sdk → sdk-api`，**SDK 不依赖协议插件**。
@@ -65,17 +67,18 @@ Car++ 装在车机上，把自己广播成一台支持 ICCOA CarLink 的车机�
 
 ## 关于 ICCOA 协议本体
 
-ICCOA CarLink 的车机端协议实现是**第三方闭源 dex**（`icar-sdk.dex`，约 7 MB），
+ICCOA CarLink 的车机端协议实现是**第三方闭源 SDK**（`icar-sdk.jar`，约 5.3 MB），
 **不在本仓库分发**，也不在本项目许可范围内：
 
-- 编译期只用签名存根 `sdk-iccoa/stubs/icar-sdk-stubs.jar`（`compileOnly`，不进产物）；
-- 运行期把 dex 放到 `app/libs/icar-sdk.dex`，由 `:app` 的 `injectIccoaDex` 任务
-  作为 `classesN.dex` 追加进 APK，再 zipalign + 重签。
+- 以标准 jar 依赖接入：`implementation(files("libs/icar-sdk.jar"))`，由 AGP 正常
+  d8 / multidex / 对齐 / 签名；
+- 本地构建时把 jar 放到 `app/libs/icar-sdk.jar`（该路径已在 `.gitignore` 里）。
 
-**没有这个 dex 时工程照样能编译、能装、能开界面，只是连不上手机。**
+**没有这个 jar 时工程照样能编译、能装、能开界面，只是连不上手机。**
 
-移植 ICCOA SDK 必须三样一起搬：dex + manifest 里的 4 个 `com.share.connect.*` Service + 权限，
-外加 `androidx.room:room-runtime`。详见 [`sdk-iccoa/README.md`](sdk-iccoa/README.md)。
+移植 ICCOA SDK 必须三样一起搬：jar + manifest 里的 4 个 `com.share.connect.*` Service + 权限，
+外加 `androidx.room:room-runtime`。详见 [`sdk-iccoa/README.md`](sdk-iccoa/README.md)
+与 [`app/libs/README.md`](app/libs/README.md)。
 
 ---
 
