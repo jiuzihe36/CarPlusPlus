@@ -5,6 +5,7 @@ import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,11 +27,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.carpp.sdk.R
@@ -57,12 +61,16 @@ fun SciFiHomeScreen(
 ) {
     val context = LocalContext.current
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(SciFiTheme.SpaceBlack),
     ) {
         StarfieldBackground(modifier = Modifier.fillMaxSize())
+
+        // 自适应：宽度 <500dp（竖屏手机）三栏挤不下 → 主舞台独占，
+        // 侧栏收起（四个动作全在底栏，功能一个不丢）；车机横屏走三栏。
+        val compact = maxWidth < 500.dp
 
         Column(
             modifier = Modifier
@@ -74,41 +82,55 @@ fun SciFiHomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(64.dp),
+                compact = compact,
                 onBrandLongPress = onOpenSettings,
             )
 
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .padding(top = 14.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                StatusPanel(
-                    state = state,
-                    onRefreshPin = onRefreshPin,
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight(),
-                )
+            if (compact) {
                 HeroPanel(
                     state = state,
                     onOpenProjection = onOpenProjection,
-                    modifier = Modifier
-                        .weight(1.7f)
-                        .fillMaxHeight(),
-                )
-                SystemPanel(
-                    state = state,
-                    onOpenSettings = onOpenSettings,
+                    compact = true,
                     modifier = Modifier
                         .weight(1f)
-                        .fillMaxHeight(),
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
                 )
+            } else {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    StatusPanel(
+                        state = state,
+                        onRefreshPin = onRefreshPin,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                    )
+                    HeroPanel(
+                        state = state,
+                        onOpenProjection = onOpenProjection,
+                        modifier = Modifier
+                            .weight(1.7f)
+                            .fillMaxHeight(),
+                    )
+                    SystemPanel(
+                        state = state,
+                        onOpenSettings = onOpenSettings,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                    )
+                }
             }
 
             BottomBar(
                 state = state,
+                compact = compact,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 14.dp),
@@ -127,6 +149,7 @@ fun SciFiHomeScreen(
 private fun TopBar(
     state: HomeUiState,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     onBrandLongPress: () -> Unit,
 ) {
     val statusText = stringResource(state.statusRes)
@@ -169,8 +192,11 @@ private fun TopBar(
                 pulse = !state.degraded && !state.connected && state.statusRes == R.string.da_connecting,
                 size = 10.dp,
             )
-            Spacer(modifier = Modifier.width(8.dp))
-            TextDim(statusText, 14.sp, 0.sp)
+            // 窄屏状态文字放不进顶栏（主舞台已有同款状态），只留灯和时钟
+            if (!compact) {
+                Spacer(modifier = Modifier.width(8.dp))
+                TextDim(statusText, 14.sp, 0.sp)
+            }
             Spacer(modifier = Modifier.width(20.dp))
             GlowText(
                 text = clock,
@@ -249,12 +275,30 @@ private fun HeroPanel(
     state: HomeUiState,
     onOpenProjection: () -> Unit,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
 ) {
     HoloPanel(modifier = modifier, padding = PaddingValues(24.dp)) {
+        // 状态头：窄屏没有侧栏，连接状态必须在主面板露脸（否则整屏只剩一个状态灯，没法读）
+        if (compact) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                StatusDot(
+                    color = dotColor(state),
+                    pulse = state.statusRes == R.string.da_connecting,
+                    size = 10.dp,
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                TextDim(stringResource(state.statusRes), 16.sp, 1.sp, color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(18.dp))
+        }
         when {
             // 配对时刻：码是此刻唯一重要的东西 —— 大号金色可读
             state.pinCode != null && !state.connected -> {
-                Spacer(modifier = Modifier.weight(0.3f))
+                Spacer(modifier = Modifier.weight(0.2f))
                 TextDim(
                     text = stringResource(R.string.da_pin_label),
                     fontSize = 13.sp,
@@ -264,25 +308,45 @@ private fun HeroPanel(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(14.dp))
-                GlowText(
-                    text = HomeFragment.groupPin(state.pinCode.orEmpty()),
-                    style = TextStyle(
-                        color = SciFiTheme.Gold,
-                        fontSize = 58.sp,
-                        fontWeight = FontWeight.W800,
-                        letterSpacing = 4.sp,
-                        textAlign = TextAlign.Center,
-                    ),
-                    glow = SciFiTheme.Gold,
-                    blurRadius = 18f,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.height(18.dp))
-                HoloProgress(
-                    percent = state.progressPercent,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(modifier = Modifier.weight(0.3f))
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    // 码字号随面板宽度自适应：窄屏不折行，车机大屏封顶 60sp（一行读完）。
+                    // 宽度→像素→反推 sp（Dp 没有直给的 toSp；BoxWithConstraintsScope 也
+                    // 不是 Density，要借 LocalDensity）。
+                    val pinSp = with(LocalDensity.current) {
+                        ((maxWidth * 0.10f).toPx() / (density * fontScale)).coerceAtMost(60f)
+                    }
+                    GlowText(
+                        text = HomeFragment.groupPin(state.pinCode.orEmpty()),
+                        style = TextStyle(
+                            color = SciFiTheme.Gold,
+                            fontSize = pinSp.sp,
+                            fontWeight = FontWeight.W800,
+                            letterSpacing = 3.sp,
+                            textAlign = TextAlign.Center,
+                        ),
+                        glow = SciFiTheme.Gold,
+                        blurRadius = 18f,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                if (!compact) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    HoloProgress(
+                        percent = state.progressPercent,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    // 窄屏补一句动作指引（码摆着，得告诉司机下一步做什么）
+                    Spacer(modifier = Modifier.height(12.dp))
+                    TextDim(
+                        text = stringResource(R.string.sci_pin_hint),
+                        fontSize = 13.sp,
+                        letterSpacing = 1.sp,
+                        align = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+                Spacer(modifier = Modifier.weight(0.2f))
             }
 
             // 已连接：渐变大字 + 回到投屏
@@ -301,11 +365,13 @@ private fun HeroPanel(
                     blurRadius = 20f,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(modifier = Modifier.height(18.dp))
-                HoloProgress(
-                    percent = state.progressPercent,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                if (!compact) {
+                    Spacer(modifier = Modifier.height(18.dp))
+                    HoloProgress(
+                        percent = state.progressPercent,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 Spacer(modifier = Modifier.height(22.dp))
                 state.projectionLabelRes?.let { label ->
                     HoloButton(
@@ -344,13 +410,53 @@ private fun HeroPanel(
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                if (!state.degraded) {
+                if (!compact && !state.degraded) {
                     HoloProgress(
                         percent = state.progressPercent,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
                 Spacer(modifier = Modifier.weight(0.4f))
+            }
+        }
+
+        // 底部块（窄屏专用）：系统信息双列 + 带标注的进度条 —— 高面板上下都有内容，
+        // 不再是一座孤岛（数据都是真的：版本来自 PackageInfo，协议是注册的实现名）。
+        if (compact) {
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    InfoRowRow(
+                        label = stringResource(R.string.sci_version),
+                        value = "v${appVersion(LocalContext.current)}",
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    InfoRowRow(
+                        label = stringResource(R.string.sci_protocol),
+                        value = "ICCOA CarLink",
+                    )
+                }
+            }
+            if (!state.degraded) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextDim(stringResource(R.string.sci_progress), 11.sp, 2.sp)
+                    Spacer(modifier = Modifier.weight(1f))
+                    TextDim(
+                        text = "${state.progressPercent.toInt()}%",
+                        fontSize = 12.sp,
+                        letterSpacing = 1.sp,
+                        color = SciFiTheme.Cyan,
+                    )
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                HoloProgress(
+                    percent = state.progressPercent,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -394,44 +500,57 @@ private fun SystemPanel(
 private fun BottomBar(
     state: HomeUiState,
     modifier: Modifier = Modifier,
+    compact: Boolean = false,
     onOpenSettings: () -> Unit,
     onRefreshPin: () -> Unit,
     onOpenProjection: () -> Unit,
     onExit: () -> Unit,
 ) {
+    val circleSize = if (compact) 44.dp else 56.dp
+    val barHeight = if (compact) 80.dp else 96.dp
     HoloPanel(
-        modifier = modifier.height(84.dp),
-        padding = PaddingValues(horizontal = 28.dp, vertical = 0.dp),
+        modifier = modifier.height(barHeight),
+        padding = PaddingValues(horizontal = if (compact) 16.dp else 28.dp, vertical = 0.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(84.dp),
+                .height(barHeight),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
+            horizontalArrangement = Arrangement.spacedBy(
+                if (compact) 14.dp else 26.dp,
+                Alignment.CenterHorizontally,
+            ),
         ) {
-            HoloCircleButton(
+            // 圆钮 + 小字标签：图标认不出时文字兜底（车机上没人有耐心猜图标）
+            BottomAction(
                 icon = SciFiIcons.settings,
+                label = stringResource(R.string.settings),
                 onClick = onOpenSettings,
+                size = circleSize,
                 contentDescription = "settings",
             )
             if (state.showRefresh) {
-                HoloCircleButton(
+                BottomAction(
                     icon = SciFiIcons.refresh,
+                    label = stringResource(R.string.sci_label_refresh),
                     onClick = onRefreshPin,
+                    size = circleSize,
                     contentDescription = "refresh",
                 )
             }
             if (state.connected) {
-                HoloCircleButton(
+                BottomAction(
                     icon = SciFiIcons.projection,
+                    label = stringResource(R.string.projection_reopen),
                     onClick = onOpenProjection,
-                    size = 68.dp,
+                    size = if (compact) 54.dp else 68.dp,
                     primary = true,
                     contentDescription = "projection",
                 )
-            } else {
-                // 没有可投的屏时，中位放等待提示（与旧版「等待手机连接」同义）
+            } else if (!compact) {
+                // 没有可投的屏时，中位放等待提示（与旧版「等待手机连接」同义）。
+                // 窄屏收起（主面板状态头已表达同一状态，底栏塞不下）。
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StatusDot(
                         color = dotColor(state),
@@ -442,12 +561,42 @@ private fun BottomBar(
                     TextDim(stringResource(state.statusRes), 14.sp, 1.sp)
                 }
             }
-            HoloCircleButton(
+            BottomAction(
                 icon = SciFiIcons.home,
+                label = stringResource(R.string.sci_label_exit),
                 onClick = onExit,
+                size = circleSize,
                 contentDescription = "exit",
             )
         }
+    }
+}
+
+/** 底栏一个动作：圆钮 + 下方小字标签。 */
+@Composable
+private fun BottomAction(
+    icon: DrawScope.() -> Unit,
+    label: String,
+    onClick: () -> Unit,
+    size: Dp,
+    primary: Boolean = false,
+    contentDescription: String? = null,
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        HoloCircleButton(
+            icon = icon,
+            onClick = onClick,
+            size = size,
+            primary = primary,
+            contentDescription = contentDescription,
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        TextDim(
+            text = label,
+            fontSize = 10.sp,
+            letterSpacing = 0.5.sp,
+            align = TextAlign.Center,
+        )
     }
 }
 

@@ -47,6 +47,8 @@ import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -155,7 +157,7 @@ fun HoloButton(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     )
 }
 
@@ -196,6 +198,12 @@ fun HoloCircleButton(
                 color = if (pressed || primary) SciFiTheme.Cyan else SciFiTheme.BorderStrong,
                 shape = CircleShape,
             )
+            .semantics {
+                // 无障碍 + 自动化定位：图标按钮没有文字，挂个可读的口令
+                if (contentDescription != null) {
+                    this.contentDescription = contentDescription
+                }
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -208,9 +216,6 @@ fun HoloCircleButton(
             radius = size.toPx() * 0.42f,
         )
         icon(this)
-        if (contentDescription != null) {
-            // 无障碍：图标按钮无文字，挂语义（Compose 侧最轻的口子是 semantics，这里用最小实现）
-        }
     }
 }
 
@@ -256,7 +261,7 @@ fun GlowText(
     )
 }
 
-/** 全息进度条：白 10% 轨道 + 青→紫渐变填充，动画平滑跟值。 */
+/** 全息进度条：暗青轨道（空槽也有发光质感，不是一截死灰）+ 青→紫渐变填充，动画平滑跟值。 */
 @Composable
 fun HoloProgress(
     percent: Float,
@@ -273,7 +278,7 @@ fun HoloProgress(
             .fillMaxWidth()
             .height(height)
             .clip(RoundedCornerShape(4.dp))
-            .background(Color.White.copy(alpha = 0.10f)),
+            .background(SciFiTheme.Cyan.copy(alpha = 0.10f)),
     ) {
         Box(
             modifier = Modifier
@@ -374,20 +379,18 @@ object SciFiIcons {
     }
 }
 
-/** 右栏「系统信息」的一行：左标签右值（一行排开，不是上下两行）。 */
+/** 系统信息行：标签在上、值在下（窄栏里同一行会互相挤断字）。 */
 @Composable
 fun InfoRowRow(label: String, value: String, valueColor: Color = SciFiTheme.Cyan) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         BasicText(
             text = label,
-            style = TextStyle(color = SciFiTheme.TextDim, fontSize = 13.sp),
+            style = TextStyle(
+                color = SciFiTheme.TextDim,
+                fontSize = 11.sp,
+                letterSpacing = 1.sp,
+            ),
         )
-        Spacer(modifier = Modifier.weight(1f))
         BasicText(
             text = value,
             style = TextStyle(

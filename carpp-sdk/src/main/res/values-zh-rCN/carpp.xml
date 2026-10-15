@@ -44,4 +44,8 @@
     <string name="sci_title_system">系统信息</string>
     <string name="sci_version">版本</string>
     <string name="sci_protocol">协议</string>
+    <string name="sci_progress">进度</string>
+    <string name="sci_label_refresh">刷新</string>
+    <string name="sci_label_exit">车机首页</string>
+    <string name="sci_pin_hint">请在手机上输入配对码</string>
 </resources>

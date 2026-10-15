@@ -52,4 +52,8 @@
 <string name="sci_title_system">SYSTEM</string>
 <string name="sci_version">Version</string>
 <string name="sci_protocol">Protocol</string>
+<string name="sci_progress">PROGRESS</string>
+<string name="sci_label_refresh">Refresh</string>
+<string name="sci_label_exit">Home</string>
+<string name="sci_pin_hint">Enter this code on your phone</string>
 </resources>

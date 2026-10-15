@@ -54,7 +54,7 @@ fun StarfieldBackground(modifier: Modifier = Modifier) {
     // 固定种子：布局稳定
     val stars = remember {
         val rnd = Random(42)
-        List(70) {
+        List(110) {
             Star(
                 x = rnd.nextFloat(),
                 y = rnd.nextFloat(),
@@ -77,8 +77,8 @@ fun StarfieldBackground(modifier: Modifier = Modifier) {
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
-                    SciFiTheme.Violet.copy(alpha = 0.20f + 0.08f * nebula),
-                    SciFiTheme.Cyan.copy(alpha = 0.06f + 0.03f * nebula),
+                    SciFiTheme.Violet.copy(alpha = 0.26f + 0.10f * nebula),
+                    SciFiTheme.Cyan.copy(alpha = 0.08f + 0.04f * nebula),
                     Color.Transparent,
                 ),
                 center = Offset(w * 0.5f, h * 0.42f),
