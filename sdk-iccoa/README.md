@@ -14,22 +14,28 @@
 | `src/main/java/com/carpp/app/IccoaManager.java` | 对上游 SDK 的门面（init / 广播 / 断开 / 刷新配对码 / 投屏 Surface） |
 | `src/main/java/com/carpp/app/IccoaProvider.kt` | `PhoneLinkProvider` 实现，注册入口 |
 | `src/main/java/com/carpp/sdk/icoca/IcocaProjectionActivity.kt` | 投影界面，持有 SDK 投屏用的 Surface |
-| `stubs/icar-sdk-stubs.jar` | 纯签名存根，**compileOnly**，不进产物 |
+| `stubs/icar-sdk-stubs.jar` | 纯签名存根，**compileOnly**，不进产物。由 `tools/sdk-stubs/make-stubs.sh` 从真 jar 生成 —— **换 SDK 版本时必须重跑** |
 
-## 协议本体：闭源 dex，不在仓库里
+## 协议本体：闭源 jar，不在仓库里
 
-`icar-sdk.dex`（约 7 MB）是第三方预编译字节码，既不在仓库里分发，也不在本项目 AGPL-3.0 许可范围内
-（`.gitignore` 用 `*.dex` 挡掉）。所以它分两半引入：
+`icar-sdk.jar` 是第三方预编译字节码，既不在仓库里分发，也不在本项目 AGPL-3.0 许可范围内
+（`.gitignore` 挡掉 `app/libs/*.jar`）。所以它分两半引入：
 
 | 半 | 文件 | 怎么用 |
 |---|---|---|
-| 编译期 | `stubs/icar-sdk-stubs.jar` | 只提供签名，让本模块能编译 |
-| 运行期 | `app/libs/icar-sdk.dex` | 由 `:app` 的 `injectIccoaDex` 任务追加进 APK 的 `classesN.dex`，再 zipalign + 重签 |
+| 编译期 | `stubs/icar-sdk-stubs.jar` | 只提供签名，让本模块能编译；`tools/sdk-stubs/make-stubs.sh` 从真 jar 生成 |
+| 运行期 | `app/libs/icar-sdk.jar` | `:app` 里 `implementation(files("libs/icar-sdk.jar"))`，由 AGP 正常 d8 / multidex / 对齐 / 签名 |
 
-**没有 dex 时工程照样能编译、能装、能开界面，只是连不上手机**——`injectIccoaDex` 把它当成
-「不带 CarWith 支持」而不是错误。
+**没有这个 jar 时工程照样能编译、能装、能开界面，只是连不上手机** —— 这是刻意设计的降级形态。
 
-拿到 dex 后放进 `app/libs/icar-sdk.dex`，正常构建即可（CI 没有这个文件，所以 CI 产物不含 CarWith）。
+拿到 jar 后放进 `app/libs/icar-sdk.jar`，正常构建即可。
+
+### 换 SDK 版本的两步
+
+1. `tools/sdk-stubs/make-stubs.sh app/libs/icar-sdk.jar` —— 重生成签名存根
+   （新版本新增的类 / 方法不在旧存根里，不重跑会直接编译失败）；
+2. 原生库跟着换：`libovmsink.so` / `libusbio.so` 由 SDK 内部 `SinkNative` / `UsbNative` 各自
+   `System.loadLibrary` 加载，**jar 与 so 必须同批**，否则 JNI 注册的类名对不上。
 
 ## 移植时必须一起搬的三样
 
