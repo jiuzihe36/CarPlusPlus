@@ -6,9 +6,11 @@ import com.carpp.sdk.sdk.LinkPhase
 import com.carpp.sdk.sdk.LinkState
 import com.carpp.sdk.sdk.NavInfo
 import com.carpp.sdk.sdk.PhoneLink
+import com.carpp.sdk.sdk.PhoneNotifications
 import com.carpp.sdk.utils.AppLog
 import com.carpp.app.IccoaManager
 import com.ucar.vehiclesdk.UCarCommon
+import com.ucar.vehiclesdk.common.UCarNotification
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,6 +36,13 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
 
     private val _navigation = MutableStateFlow<NavInfo?>(null)
     override val navigation: StateFlow<NavInfo?> = _navigation.asStateFlow()
+
+    /**
+     * 手机通知通道。点按 / 划掉都通过 [IcocaNotifications] 回到手机；
+     * 划掉时让 [IccoaManager.removeNotification] 真正通知手机。
+     */
+    private val notificationsImpl = IcocaNotifications { id -> manager.removeNotification(id) }
+    override val notifications: PhoneNotifications get() = notificationsImpl
 
     /** The underlying SDK facade. Public so projection / navigation code can reach raw APIs. */
     val manager = IccoaManager(context.applicationContext, this)
@@ -62,6 +71,8 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
         started = false
         AppLog.i("ICCOA: stop()")
         manager.stop()
+        // 通知属于那一次会话：断开后手机侧的通知列表已经和车机无关了，别把旧卡片留在屏幕上。
+        notificationsImpl.clear()
         _state.update { it.copy(phase = LinkPhase.Idle, pinCode = null) }
     }
 
@@ -73,6 +84,7 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
     override fun disconnectSession() {
         AppLog.i("ICCOA: disconnectSession()")
         manager.disconnectSession()
+        notificationsImpl.clear()
         _state.update { it.copy(phase = LinkPhase.Advertising, pinCode = null) }
     }
 
@@ -168,6 +180,16 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
                 directionIcon = it.directionIcon,
             )
         }
+    }
+
+    /** 手机新增 / 更新了一条通知。SDK worker 线程回调，映射与去重都在实现里做。 */
+    override fun onNotificationAdded(notification: UCarNotification?) {
+        notificationsImpl.onAdded(notification)
+    }
+
+    /** 手机上把通知划掉了。 */
+    override fun onNotificationRemoved(ids: List<Int>?) {
+        notificationsImpl.onRemoved(ids)
     }
 
     /**

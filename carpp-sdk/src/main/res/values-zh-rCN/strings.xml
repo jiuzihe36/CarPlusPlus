@@ -1027,4 +1027,8 @@
     <string name="cluster_map_trigger_always">常开</string>
     <string name="cluster_map_trigger_cruise">巡航和导航</string>
     <string name="cluster_map_trigger_navigation">仅导航</string>
+
+    <!-- 投屏画面上的手机通知浮层 -->
+    <string name="notification_panel_title">通知（%1$d）</string>
+    <string name="notification_collapse">收起</string>
 </resources>

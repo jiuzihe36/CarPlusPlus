@@ -78,6 +78,12 @@ interface PhoneLink {
     /** 手机侧最新的导航快照；协议不上报导航信息时恒为 null。 */
     val navigation: StateFlow<NavInfo?>
 
+    /**
+     * 手机通知通道。协议不支持通知同步时返回 [PhoneNotifications.None]（列表恒空），
+     * 界面因此不需要判空 —— 通知能力只是链路上的一块，不是所有协议都有。
+     */
+    val notifications: PhoneNotifications get() = PhoneNotifications.None
+
     val isStarted: Boolean
 
     /** 启动（或继续）链路：初始化一次，然后开始广播。重复调用必须安全。 */

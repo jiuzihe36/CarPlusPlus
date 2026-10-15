@@ -15,6 +15,7 @@ import com.carpp.sdk.sdk.LinkPhase
 import com.carpp.sdk.sdk.PhoneLink
 import com.carpp.sdk.sdk.PhoneLinkRegistry
 import com.carpp.sdk.utils.AppLog
+import com.carpp.sdk.view.NotificationOverlayView
 import com.carpp.iccoa.R
 import kotlinx.coroutines.launch
 
@@ -94,6 +95,24 @@ class IcocaProjectionActivity : AppCompatActivity() {
                     findViewById<View>(R.id.icoca_hint)?.visibility =
                         if (state.phase == LinkPhase.Connected) View.GONE else View.VISIBLE
                 }
+            }
+        }
+
+        // 手机通知：横幅 + 点开后的列表。点开 / 划掉都交回协议实现（那边点 SDK 的
+        // PendingIntent，等于让手机执行真动作），本页只管显示。
+        val overlay = findViewById<NotificationOverlayView>(R.id.icoca_notifications)
+        overlay.onOpen = { id ->
+            AppLog.i("ICCOA projection: 打开手机通知 #$id")
+            bridge.notifications.open(id)
+        }
+        overlay.onDismiss = { id ->
+            AppLog.i("ICCOA projection: 划掉手机通知 #$id")
+            bridge.notifications.dismiss(id)
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                bridge.notifications.notifications.collect { overlay.submit(it) }
             }
         }
     }

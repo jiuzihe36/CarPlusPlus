@@ -1080,4 +1080,8 @@
     <string name="cluster_map_trigger_always">Always</string>
     <string name="cluster_map_trigger_cruise">Cruise + nav</string>
     <string name="cluster_map_trigger_navigation">Nav only</string>
+
+    <!-- Phone notification overlay on the projection screen. -->
+    <string name="notification_panel_title">Notifications (%1$d)</string>
+    <string name="notification_collapse">Collapse</string>
 </resources>

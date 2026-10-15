@@ -38,4 +38,13 @@
         android:text="@string/shortcut_disconnect_title"
         android:textColor="#FFFFFFFF" />
 
+    <!-- 手机通知浮层：顶部横幅 + 点开后的通知列表。
+         放在最上层，但自身不 clickable、没有通知时子 View 全是 GONE ——
+         卡片以外的区域触摸照旧穿透到底下的 UCarSurfaceView，触摸回传不受影响。
+         类在 :carpp-sdk 里（协议无关），只吃 PhoneNotifications 契约。 -->
+    <com.carpp.sdk.view.NotificationOverlayView
+        android:id="@+id/icoca_notifications"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
 </FrameLayout>

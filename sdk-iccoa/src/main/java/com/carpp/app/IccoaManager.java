@@ -15,7 +15,9 @@ import com.ucar.vehiclesdk.IPhoneDataListener;
 import com.ucar.vehiclesdk.UCarAdapter;
 import com.ucar.vehiclesdk.UCarCommon;
 import com.ucar.vehiclesdk.UCarConfig;
+import com.ucar.vehiclesdk.common.UCarNotification;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -45,6 +47,10 @@ public class IccoaManager {
         void onCastStarted();
         /** 手机导航信息（POC-2 / BYD 仪表与 HUD 的数据源）。 */
         void onNavigation(UCarCommon.NavigationInfo info);
+        /** 手机新增 / 更新了一条通知。 */
+        void onNotificationAdded(UCarNotification notification);
+        /** 手机上把通知划掉了（用户在手机侧操作）。 */
+        void onNotificationRemoved(List<Integer> ids);
     }
 
     private final Context appCtx;
@@ -170,6 +176,30 @@ public class IccoaManager {
     }
 
     public String getLastPinCode() { return lastPinCode; }
+
+    /**
+     * 让手机把某条通知划掉（车机界面上的「✕」）。
+     *
+     * 走 SDK 的 {@code UCarAdapter.removeNotification}，手机侧会真的移除该通知，
+     * 随后 SDK 回调 {@code onNotificationRemoved} 同步回来（本地先收是幂等的）。
+     *
+     * @return 是否成功交给 SDK；SDK 未初始化 / 未连接时返回 false。
+     */
+    public boolean removeNotification(int id) {
+        UCarAdapter a = adapter;
+        if (a == null) {
+            log("! removeNotification(" + id + ") 被忽略：SDK 未初始化");
+            return false;
+        }
+        try {
+            boolean ok = a.removeNotification(Collections.singletonList(id));
+            log((ok ? "✓ " : "✗ ") + "removeNotification(" + id + ")");
+            return ok;
+        } catch (Throwable t) {
+            log("! removeNotification(" + id + ") 失败：" + t);
+            return false;
+        }
+    }
 
     /** Surface 就绪 / 变化（Activity 的 surfaceChanged 回调里调用）。 */
     public void setSurface(Surface s) {
@@ -439,6 +469,16 @@ public class IccoaManager {
             listener.onNavigation(info);
         }
 
+        @Override
+        public void onNotificationAdded(String phoneId, UCarNotification notification) {
+            listener.onNotificationAdded(notification);
+        }
+
+        @Override
+        public void onNotificationRemoved(String phoneId, List<Integer> ids) {
+            listener.onNotificationRemoved(ids);
+        }
+
         @Override public void onMusicInfoReceived(String phoneId, UCarCommon.MusicInfo info) { }
         @Override public void onCallInfoReceived(String phoneId, UCarCommon.CallInfo info) { }
         @Override public void onPhoneStateInfoReceived(String phoneId, UCarCommon.PhoneStateInfo info) { }
@@ -451,7 +491,8 @@ public class IccoaManager {
 
         @Override
         public void onAppStateChanged(String phoneId, int state, boolean flag,
-                                      int a, int b, UCarCommon.AppState appState) { }
+                                      int a, int b, UCarCommon.AppState appState,
+                                      UCarCommon.DisplayMode displayMode) { }
 
         @Override
         public UCarCommon.AudioAttributes getAudioAttributesByType(UCarCommon.AudioType type) {
