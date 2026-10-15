@@ -337,13 +337,7 @@ private fun HeroPanel(
                     )
                 }
                 PinSegments(modifier = Modifier.padding(top = 10.dp))
-                if (!compact) {
-                    Spacer(modifier = Modifier.height(18.dp))
-                    HoloProgress(
-                        percent = state.progressPercent,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
+                if (compact) {
                     // 窄屏补一句动作指引（码摆着，得告诉司机下一步做什么）
                     Spacer(modifier = Modifier.height(12.dp))
                     TextDim(
@@ -373,13 +367,6 @@ private fun HeroPanel(
                     blurRadius = 20f,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (!compact) {
-                    Spacer(modifier = Modifier.height(18.dp))
-                    HoloProgress(
-                        percent = state.progressPercent,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
                 Spacer(modifier = Modifier.height(22.dp))
                 state.projectionLabelRes?.let { label ->
                     HoloButton(
@@ -413,13 +400,6 @@ private fun HeroPanel(
                     blurRadius = 16f,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Spacer(modifier = Modifier.height(16.dp))
-                if (!compact && !state.degraded) {
-                    HoloProgress(
-                        percent = state.progressPercent,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
                 Spacer(modifier = Modifier.weight(0.4f))
             }
         }
