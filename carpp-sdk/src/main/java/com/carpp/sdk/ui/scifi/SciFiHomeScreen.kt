@@ -109,7 +109,6 @@ fun SciFiHomeScreen(
                 ) {
                     StatusPanel(
                         state = state,
-                        onRefreshPin = onRefreshPin,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -224,7 +223,6 @@ private fun TopBar(
 @Composable
 private fun StatusPanel(
     state: HomeUiState,
-    onRefreshPin: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     HoloPanel(modifier = modifier, padding = PaddingValues(18.dp)) {
@@ -259,19 +257,7 @@ private fun StatusPanel(
 
         Spacer(modifier = Modifier.weight(1f))
 
-        if (state.showRefresh) {
-            HoloButton(
-                text = stringResource(R.string.da_refresh_pin),
-                onClick = onRefreshPin,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        } else if (state.connected) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                StatusDot(color = SciFiTheme.Cyan, size = 8.dp)
-                Spacer(modifier = Modifier.width(8.dp))
-                TextDim(stringResource(R.string.da_connected), 13.sp, 0.sp)
-            }
-        }
+
     }
 }
 
@@ -336,7 +322,6 @@ private fun HeroPanel(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
-                PinSegments(modifier = Modifier.padding(top = 10.dp))
                 if (compact) {
                     // 窄屏补一句动作指引（码摆着，得告诉司机下一步做什么）
                     Spacer(modifier = Modifier.height(12.dp))
@@ -608,22 +593,3 @@ private fun appVersion(context: Context): String = try {
 private fun today(): String =
     java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
 
-/** 配对码分段下划线：6 格、3+3 中间加宽距 —— 读码分组的视觉锚。 */
-@Composable
-private fun PinSegments(modifier: Modifier = Modifier) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.Center) {
-        repeat(6) { i ->
-            if (i == 3) {
-                Spacer(modifier = Modifier.width(12.dp))
-            } else if (i > 0) {
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-            Box(
-                modifier = Modifier
-                    .width(34.dp)
-                    .height(5.dp)
-                    .background(SciFiTheme.Cyan.copy(alpha = 0.75f), RoundedCornerShape(2.5.dp)),
-            )
-        }
-    }
-}

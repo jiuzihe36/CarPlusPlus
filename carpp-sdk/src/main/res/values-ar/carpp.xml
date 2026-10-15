@@ -10,7 +10,6 @@
     <string name="da_connected">تم اتصال الهاتف</string>
     <string name="da_pin">رمز الاقتران: %1$s</string>
     <string name="da_pin_label">رمز الاقتران</string>
-    <string name="da_refresh_pin">تحديث رمز الاقتران</string>
     <string name="da_hint">أبقِ Bluetooth وWi-Fi مفعّلين. افتح Xiaomi CarWith أو OPPO Car+ أو vivo Jovi InCar على هاتفك، واختر هذه السيارة، ثم تحقق من رمز الاقتران الظاهر هنا.</string>
     <string name="da_usb">الاقتران عبر Bluetooth</string>
     <string name="da_usb_hint">اقرن هذه السيارة أولاً من إعدادات Bluetooth في هاتفك.</string>

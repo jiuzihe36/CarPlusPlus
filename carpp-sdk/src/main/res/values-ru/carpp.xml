@@ -10,7 +10,6 @@
     <string name="da_connected">Телефон подключён</string>
     <string name="da_pin">Код сопряжения: %1$s</string>
     <string name="da_pin_label">КОД СОПРЯЖЕНИЯ</string>
-    <string name="da_refresh_pin">Обновить код</string>
     <string name="da_hint">Оставьте Bluetooth и Wi-Fi включёнными. Откройте Xiaomi CarWith, OPPO Car+ или vivo Jovi InCar на телефоне, выберите этот автомобиль и сверьте код сопряжения, показанный здесь.</string>
     <string name="da_usb">Сопряжение по Bluetooth</string>
     <string name="da_usb_hint">Сначала выполните сопряжение с этим автомобилем в настройках Bluetooth телефона.</string>

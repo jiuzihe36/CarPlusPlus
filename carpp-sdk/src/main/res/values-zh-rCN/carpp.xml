@@ -11,7 +11,6 @@
     <string name="da_connected">手机已连接</string>
     <string name="da_pin">配对码：%1$s</string>
     <string name="da_pin_label">配对码</string>
-    <string name="da_refresh_pin">刷新配对码</string>
     <string name="da_hint">请保持蓝牙与 Wi-Fi 开启。在手机上打开小米 CarWith、OPPO Car+ 车联或 vivo Jovi InCar，选择本车机后核对此处显示的配对码。</string>
     <string name="da_usb">通过蓝牙配对</string>
     <string name="da_usb_hint">请先在手机的蓝牙设置中与本车机配对。</string>

@@ -10,7 +10,6 @@
     <string name="da_connected">Teléfono conectado</string>
     <string name="da_pin">Código de emparejamiento: %1$s</string>
     <string name="da_pin_label">CÓDIGO DE EMPAREJAMIENTO</string>
-    <string name="da_refresh_pin">Actualizar código</string>
     <string name="da_hint">Mantén Bluetooth y Wi-Fi activados. Abre Xiaomi CarWith, OPPO Car+ o vivo Jovi InCar en tu teléfono, elige este coche y comprueba el código que aparece aquí.</string>
     <string name="da_usb">Emparejar por Bluetooth</string>
     <string name="da_usb_hint">Empareja este coche primero en los ajustes Bluetooth del teléfono.</string>
