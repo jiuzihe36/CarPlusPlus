@@ -6,6 +6,7 @@
     <string name="da_description">把手机投屏到这块车机屏幕或仪表盘/HUD。\n在手机上打开小米 CarWith、OPPO Car+ 车联或 vivo Jovi InCar，选择本车机即可开始。</string>
     <string name="da_connect">开始配对</string>
     <string name="da_open">打开投屏</string>
+    <string name="projection_reopen">回到投屏</string>
     <string name="da_ready">等待手机连接</string>
     <string name="da_connecting">正在连接手机…</string>
     <string name="da_connected">手机已连接</string>

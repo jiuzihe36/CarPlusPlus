@@ -193,6 +193,14 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
     }
 
     /**
+     * 手机上点了「返回车机」：手机侧按不动车机的界面，只能发这个事件请车机自己退。
+     * 这里只把它变成可观察的计数（链路还连着），退不退由界面决定。
+     */
+    override fun onGoToHome() {
+        _state.update { it.copy(homeRequestCount = it.homeRequestCount + 1) }
+    }
+
+    /**
      * Moves the phase and keeps the stored PIN honest: a code only means something while the SDK is
      * still pairing.
      *

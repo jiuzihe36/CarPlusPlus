@@ -25,19 +25,9 @@
         android:textSize="20sp"
         android:visibility="gone" />
 
-    <!-- Sits over the mirrored UI on purpose: a head unit may have no reachable Back, so there
-         must always be a way out. Kept translucent so it stays out of the way. -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/icoca_disconnect"
-        style="@style/Widget.MaterialComponents.Button.TextButton"
-        android:layout_width="wrap_content"
-        android:layout_height="44dp"
-        android:layout_gravity="top|end"
-        android:layout_margin="10dp"
-        android:alpha="0.45"
-        android:text="@string/shortcut_disconnect_title"
-        android:textColor="#FFFFFFFF" />
-
+    <!-- 退出投屏不靠这里的按钮：手机上那个「返回车机」按不动车机界面，只能发 GO_TO_HOME 事件
+         请车机自己退 —— 由 IcocaProjectionActivity 收事件后退出视图（车机自带返回键同样处理）。
+         所以本页不再自绘退出按钮，避免和手机侧那个重复。 -->
     <!-- 手机通知浮层：顶部横幅 + 点开后的通知列表。
          放在最上层，但自身不 clickable、没有通知时子 View 全是 GONE ——
          卡片以外的区域触摸照旧穿透到底下的 UCarSurfaceView，触摸回传不受影响。

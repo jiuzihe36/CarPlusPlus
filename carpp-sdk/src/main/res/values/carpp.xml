@@ -12,6 +12,7 @@
     <string name="da_description">Mirror your phone to this screen or to the cluster / HUD.\nOpen Xiaomi CarWith, OPPO Car+ or vivo Jovi InCar on your phone and pick this car to start.</string>
     <string name="da_connect">Start pairing</string>
     <string name="da_open">Open projection</string>
+    <string name="projection_reopen">Back to mirror</string>
     <string name="da_ready">Waiting for your phone</string>
     <string name="da_connecting">Connecting to your phone…</string>
     <string name="da_connected">Phone connected</string>

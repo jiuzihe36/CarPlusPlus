@@ -122,6 +122,12 @@ class HomeFragment : Fragment() {
         view.findViewById<View>(R.id.wifi_button)?.visibility =
             if (connected) View.VISIBLE else View.GONE
 
+        // 连上时这个入口的语义是「回到投屏」：用户可能刚从投屏页点了「返回车机」回到这里，
+        // 而投屏页不会自己弹回来了（见 ProjectionEntryPolicy），得给一条明确的回去的路。
+        (view.findViewById<View>(R.id.wifi_button) as? TextView)?.setText(
+            if (connected) R.string.projection_reopen else R.string.da_open,
+        )
+
         // Refresh is pointless once a session is up, so it is the mirror image of "Open projection".
         view.findViewById<View>(R.id.refresh_pin_button)?.visibility =
             if (connected) View.GONE else View.VISIBLE
@@ -149,6 +155,8 @@ class HomeFragment : Fragment() {
         // Mark as opened so MainActivity's auto-open observer doesn't immediately re-launch the
         // projection the moment this fragment's host resumes.
         MainActivity.icocaProjectionOpened = true
+        // 用户主动要投屏：清掉「主动返回车机」的记录，恢复自动打开语义（下次连上照常自动进投屏）。
+        ProjectionEntryPolicy.shared.onUserReopen()
         // 投影界面由协议自带（ICCOA 是 IcocaProjectionActivity）；换协议时这里不用改。
         PhoneLinkRegistry.provider()?.projectionIntent(requireContext())?.let { startActivity(it) }
     }

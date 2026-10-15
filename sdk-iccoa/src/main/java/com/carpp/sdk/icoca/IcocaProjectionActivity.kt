@@ -11,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import com.carpp.sdk.main.ProjectionEntryPolicy
 import com.carpp.sdk.sdk.LinkPhase
 import com.carpp.sdk.sdk.PhoneLink
 import com.carpp.sdk.sdk.PhoneLinkRegistry
@@ -80,24 +81,61 @@ class IcocaProjectionActivity : AppCompatActivity() {
             }
         )
 
-        findViewById<View>(R.id.icoca_disconnect).setOnClickListener {
-            AppLog.i("ICCOA projection: disconnect tapped")
-            // Drop the session but keep advertising: the standby screen goes straight back to
-            // "waiting for phone" and a fresh pairing code, instead of a dead link that needs an
-            // app restart to recover.
-            bridge.disconnectSession()
-            finish()
-        }
+        bindNotificationOverlay()
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var lastHomeRequest = bridge.state.value.homeRequestCount
                 bridge.state.collect { state ->
                     findViewById<View>(R.id.icoca_hint)?.visibility =
                         if (state.phase == LinkPhase.Connected) View.GONE else View.VISIBLE
+
+                    // 手机上点了「返回车机」：手机侧按不动车机的界面，只能发事件请车机自己退。
+                    // 链路仍然连着，所以这里只退视图 —— 并且要记成「用户主动退出」，
+                    // 否则 MainActivity 的自动打开会立刻把投屏页再拉回来。
+                    if (state.homeRequestCount > lastHomeRequest) {
+                        lastHomeRequest = state.homeRequestCount
+                        AppLog.i("ICCOA projection: 手机请求回到车机界面 → 退出投屏")
+                        leaveToHeadUnit()
+                    }
                 }
             }
         }
+    }
 
+    /**
+     * 退出投屏视图、回到**车机自己的主桌面**。
+     *
+     * 为什么是主桌面而不是本应用的连接页：手机侧那个「返回车机」的语义就是「我要用车机自己的
+     * 界面」，停在 Car++ 的连接页等于没退干净 —— 用户还得再按一次 HOME。
+     *
+     * 只退视图，不断链路：手机还连着，从车机界面点 Car++ 的「回到投屏」能立刻回去。
+     * 同时记下「用户主动退出」，避免 MainActivity 的自动打开把投屏页又弹回来。
+     */
+    private fun leaveToHeadUnit() {
+        ProjectionEntryPolicy.shared.onUserExit()
+        startActivity(
+            Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+        finish()
+    }
+
+    /** 车机自带的返回键（有实体键 / 系统返回的机型）：同样当作主动退出，别把人困在投屏里。 */
+    @Deprecated("Kept for head units with a hardware back key")
+    override fun onBackPressed() {
+        AppLog.i("ICCOA projection: 返回键 → 退出投屏")
+        leaveToHeadUnit()
+    }
+
+    // ------------------------------------------------------------------
+    // 手机通知浮层
+    // ------------------------------------------------------------------
+
+    /** 把通知浮层接到协议的通知通道上；点开 / 划掉都交回协议实现。 */
+    private fun bindNotificationOverlay() {
         // 手机通知：横幅 + 点开后的列表。点开 / 划掉都交回协议实现（那边点 SDK 的
         // PendingIntent，等于让手机执行真动作），本页只管显示。
         val overlay = findViewById<NotificationOverlayView>(R.id.icoca_notifications)

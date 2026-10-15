@@ -51,6 +51,13 @@ public class IccoaManager {
         void onNotificationAdded(UCarNotification notification);
         /** 手机上把通知划掉了（用户在手机侧操作）。 */
         void onNotificationRemoved(List<Integer> ids);
+        /**
+         * 手机要求车机回到自己的界面（用户在手机上点了「返回车机」）。
+         *
+         * ICCOA 的 `UCAR_DEVICE_GO_TO_HOME` 事件就是这个语义：手机侧的按钮按不动车机的界面，
+         * 只能发这个事件请车机自己退。链路仍然连着，退不退由车机决定。
+         */
+        void onGoToHome();
     }
 
     private final Context appCtx;
@@ -68,6 +75,19 @@ public class IccoaManager {
     private volatile boolean sdkInitialized = false;
     private volatile boolean sdkReady = false;
     private volatile boolean castStarted = false;
+
+    /**
+     * 已经起投的那块 Surface 与当时的显示区尺寸。
+     *
+     * 「要不要起投」用 Surface 身份 + 尺寸判断，**不能**只看 [castStarted]：同一个会话里投屏页
+     * 会被关掉再打开（手机上点「返回车机」、用户从车机界面点「回到投屏」），那时 Surface 是**新的**，
+     * 必须重新 `startCast` —— 否则手机不再推流，车机上就是一块全黑的投屏页。
+     * 尺寸也要比：SDK 只在 startCast 里设置 UIBC 的显示区尺寸，画面区域变了得重新起投才生效。
+     */
+    private volatile Surface castSurface = null;
+    private volatile int castW = 0;
+    private volatile int castH = 0;
+
     private volatile String lastPinCode = null;
 
     /** 会话结束后重新广播的延时：留出 SDK 内部收尾时间，避免与断连流程竞争。 */
@@ -275,7 +295,7 @@ public class IccoaManager {
         }
         try { adapter.stopAdvertise(); } catch (Throwable t) { log("stopAdvertise(重播前) 异常: " + t); }
         sdkReady = true;
-        castStarted = false;
+        clearCast();
         castRetry = 0;
         lastPinCode = null;
         doAdvertise();
@@ -310,7 +330,7 @@ public class IccoaManager {
         main.removeCallbacks(reAdvertiseRunnable);
         cancelAutoRefresh();
         sessionActive = false;
-        castStarted = false;
+        clearCast();
         sdkReady = false;
         lastPinCode = null;
         // 保留 sdkInitialized —— init() 进程一次性，重启只走 reAdvertise()。
@@ -329,7 +349,7 @@ public class IccoaManager {
             try { adapter.disconnect(); } catch (Throwable t) { log("disconnect 异常: " + t); }
         }
         sessionActive = false;
-        castStarted = false;
+        clearCast();
         lastPinCode = null;
         scheduleReAdvertise();
         scheduleAutoRefresh();
@@ -354,7 +374,7 @@ public class IccoaManager {
      * 这里的十秒预算只用于「Surface 已设但尚未 valid」的短暂窗口。
      */
     private void tryStartCast() {
-        if (!sdkReady || castStarted || adapter == null) return;
+        if (!sdkReady || adapter == null) return;
         Surface s = surface;
         if (s == null || !s.isValid()) {
             if (castRetry < CAST_RETRY_MAX) {
@@ -363,17 +383,33 @@ public class IccoaManager {
             }
             return;
         }
-        castRetry = 0;
         // startCast 的 w/h 是 UIBC 的显示区尺寸（触摸坐标空间）：知道 View 真实尺寸时用它，
         // 否则回落到面板尺寸。视频码流尺寸由 SDK 自己从链路里取，与这里的 w/h 无关。
         int cw = viewW > 0 ? viewW : videoW;
         int ch = viewH > 0 ? viewH : videoH;
+        // 同一块 Surface、同一个尺寸：已经起投过，别重复。
+        // 换了 Surface（投屏页关了又开）或换了尺寸 → 必须重新起投，否则手机不推流。
+        if (s == castSurface && cw == castW && ch == castH) return;
+        castRetry = 0;
         boolean ok = adapter.startCast(s, cw, ch);
         castStarted = ok;
+        if (ok) {
+            castSurface = s;
+            castW = cw;
+            castH = ch;
+        }
         log((ok ? "✓ " : "✗ ") + "startCast(" + cw + "x" + ch + ") = " + ok);
         if (ok) {
             main.post(listener::onCastStarted);
         }
+    }
+
+    /** 拆会话 / 重播时清掉起投记录：下次拿到 Surface 必须重新起投。 */
+    private void clearCast() {
+        castStarted = false;
+        castSurface = null;
+        castW = 0;
+        castH = 0;
     }
 
     // ==================================================================
@@ -405,7 +441,7 @@ public class IccoaManager {
                 // 并触发一次全新配对（新的 onPinCode）。
                 sessionActive = false;
                 lastPinCode = null;
-                castStarted = false;
+                clearCast();
                 scheduleReAdvertise();
                 scheduleAutoRefresh();
             } else if (state == STATE_CONNECTED || state == STATE_CAST_CONNECTED
@@ -414,6 +450,13 @@ public class IccoaManager {
                 // 重启广播打断；看门狗也会因此空转。
                 sessionActive = true;
                 main.removeCallbacks(reAdvertiseRunnable);
+
+                if (state == STATE_GO_TO_HOME) {
+                    // 手机上点了「返回车机」：链路还连着，但手机请车机退回自己的界面。
+                    // 以前这里只是「保持连接」，于是那个按钮在车机上完全没反应。
+                    log("★ 手机请求回到车机界面（GO_TO_HOME）");
+                    listener.onGoToHome();
+                }
             } else if (state == STATE_CONNECT_FAILED) {
                 log("✗ 连接失败 errorCode=" + extra);
                 sessionActive = false;

@@ -120,7 +120,12 @@ class MainActivity : BaseActivity() {
         clearBootLoopGuardIfOpenedByHand()
 
         // 已经有会话在跑（服务把本页重新拉起等），直接把投影页带到前台。
-        if (App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected && !App.isPiPActive) {
+        // 但用户主动「返回车机」过就不再抢前台：手机默认自动重连，重建一次页面就又弹回投屏，
+        // 表现就是那个按钮按了没用。要投屏时从车机界面点「回到投屏」。
+        if (ProjectionEntryPolicy.shared.shouldAutoOpen(
+                App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected,
+            ) && !App.isPiPActive
+        ) {
             AppLog.i("MainActivity: Active session detected in onCreate, bringing projection to front")
             bringProjectionToFront()
 
@@ -281,11 +286,24 @@ class MainActivity : BaseActivity() {
         val link = App.provide(this).phoneLink ?: return
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                var lastHomeRequest = link.state.value.homeRequestCount
                 link.state.collect { icocaState ->
+                    // 手机请求回车机界面：**投屏页没打开时这个事件也必须接住**。它常发生在
+                    // 「刚连上、投屏页还没打开」的瞬间；漏掉的话这里照常自动打开投屏页，
+                    // 而手机已经不再推流 —— 车机上就是一块全黑的投屏页，按 HOME 都切不走。
+                    if (icocaState.homeRequestCount > lastHomeRequest) {
+                        lastHomeRequest = icocaState.homeRequestCount
+                        AppLog.i("ICCOA: 手机请求回到车机界面 → 本次不再自动打开投屏")
+                        ProjectionEntryPolicy.shared.onUserExit()
+                    }
+
                     if (icocaState.phase == LinkPhase.Connected) {
                         // Open once per session: without the flag, coming back from the projection
                         // screen would bounce the user straight back into it, with no way out.
-                        if (!icocaProjectionOpened && !provider.projectionForeground) {
+                        // 再叠一层「用户主动返回车机过就不自动弹」：手机自动重连不会抢前台。
+                        if (!icocaProjectionOpened && !provider.projectionForeground &&
+                            ProjectionEntryPolicy.shared.shouldAutoOpen(true)
+                        ) {
                             AppLog.i("ICCOA: phone connected — opening projection")
                             icocaProjectionOpened = true
                             provider.projectionIntent(this@MainActivity)?.let { startActivity(it) }
@@ -315,6 +333,9 @@ class MainActivity : BaseActivity() {
      */
     @JvmOverloads
     fun beginAutoConnect(reason: String, mode: ConnectionUiMode, customStatusText: String? = null) {
+        // 用户主动发起连接 = 要投屏：清掉「已返回车机」的记录，否则连上后 bringProjectionToFront()
+        // 会被策略拦住，用户按了「连接手机」却停在首页。
+        ProjectionEntryPolicy.shared.onUserReopen()
         if (autoConnectInProgress) return
         // 链路已经连上就没什么可指示的，不铺指示器。
         if (App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected) return
@@ -830,6 +851,14 @@ class MainActivity : BaseActivity() {
      * 两个副本各写一套迟早会漂移。
      */
     private fun bringProjectionToFront() {
+        // 唯一收口：用户主动「返回车机」过就不再抢前台。
+        // 手机默认自动重连，本方法又被 onCreate / onResume / 连接成功三处调用 —— 不在这里拦，
+        // 用户在车机界面上干点别的（开个设置再返回）就会被拽回投屏，表现就是「返回车机按了没用」。
+        // 想回到投屏时走车机界面的「回到投屏」入口（那边会 onUserReopen()）。
+        if (!ProjectionEntryPolicy.shared.shouldAutoOpen(connected = true)) {
+            AppLog.i("MainActivity: 用户已返回车机 → 不自动打开投屏")
+            return
+        }
         val projectionIntent = PhoneLinkRegistry.provider()?.projectionIntent(this) ?: return
         projectionIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         startActivity(projectionIntent)
