@@ -1,5 +1,8 @@
 package com.carpp.sdk.ui.scifi
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -24,9 +27,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -52,6 +57,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -64,9 +74,9 @@ import androidx.compose.ui.unit.sp
  * ------------------------------------------------------------------ */
 
 /**
- * 全息面板：磨砂深空底 + 1px 青色描边 + 内侧多层辉光。
+ * 全息面板：磨砂深空底 + 1px 青色描边 + 内侧多层辉光 + 四角 HUD 角标。
  *
- * 辉光用 drawBehind 画在内容之下（API 21 可用；不做 RenderEffect —— 车机是 Android 9）。
+ * 辉光与角标用 drawBehind 画在内容之下（API 21 可用；不做 RenderEffect —— 车机是 Android 9）。
  */
 @Composable
 fun HoloPanel(
@@ -91,6 +101,25 @@ fun HoloPanel(
                     cornerRadius = CornerRadius(12.dp.toPx()),
                     style = Stroke(width = 9.dp.toPx()),
                 )
+                // 四角 HUD 角标：直角折线，科幻面板的点睛笔
+                val len = 14.dp.toPx()
+                val inset = 4.dp.toPx()
+                val w = size.width
+                val h = size.height
+                val stroke = Stroke(width = 2.dp.toPx())
+                val c = SciFiTheme.Cyan.copy(alpha = 0.9f)
+                // 左上
+                drawLine(c, androidx.compose.ui.geometry.Offset(inset, inset + len), androidx.compose.ui.geometry.Offset(inset, inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawLine(c, androidx.compose.ui.geometry.Offset(inset, inset), androidx.compose.ui.geometry.Offset(inset + len, inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                // 右上
+                drawLine(c, androidx.compose.ui.geometry.Offset(w - inset, inset + len), androidx.compose.ui.geometry.Offset(w - inset, inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawLine(c, androidx.compose.ui.geometry.Offset(w - inset, inset), androidx.compose.ui.geometry.Offset(w - inset - len, inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                // 左下
+                drawLine(c, androidx.compose.ui.geometry.Offset(inset, h - inset - len), androidx.compose.ui.geometry.Offset(inset, h - inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawLine(c, androidx.compose.ui.geometry.Offset(inset, h - inset), androidx.compose.ui.geometry.Offset(inset + len, h - inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                // 右下
+                drawLine(c, androidx.compose.ui.geometry.Offset(w - inset, h - inset - len), androidx.compose.ui.geometry.Offset(w - inset, h - inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
+                drawLine(c, androidx.compose.ui.geometry.Offset(w - inset, h - inset), androidx.compose.ui.geometry.Offset(w - inset - len, h - inset), strokeWidth = stroke.width, cap = StrokeCap.Round)
             }
             .border(width = 1.dp, color = SciFiTheme.Border, shape = shape)
             .padding(padding),
@@ -118,6 +147,12 @@ fun HoloButton(
         targetValue = if (pressed) 0.96f else 1f,
         animationSpec = tween(120),
         label = "holoBtnScale",
+    )
+    val breathe by rememberInfiniteTransition(label = "btnBreathe").animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400), RepeatMode.Reverse),
+        label = "btnBreatheAlpha",
     )
     val shape = RoundedCornerShape(8.dp)
     BasicText(
@@ -147,7 +182,8 @@ fun HoloButton(
                 width = if (primary) 2.dp else 1.dp,
                 color = when {
                     pressed -> SciFiTheme.Cyan
-                    primary -> SciFiTheme.Cyan
+                    // 主键呼吸辉光：边框明暗循环，让唯一的行动点"活"着
+                    primary -> SciFiTheme.Cyan.copy(alpha = breathe)
                     else -> SciFiTheme.BorderStrong
                 },
                 shape = shape,
@@ -430,3 +466,71 @@ fun Modifier.longPressGlow(onLongPress: () -> Unit): Modifier =
     pointerInput(onLongPress) {
         detectTapGestures(onLongPress = { onLongPress() })
     }
+
+
+/* ------------------------------------------------------------------ *
+ * 星际打磨件：标题条 / 脉冲光环灯 / 面板入场
+ * ------------------------------------------------------------------ */
+
+/** 面板小标题：青色竖条 + 字距拉开的小字（HUD 标题样式）。 */
+@Composable
+fun PanelTitle(text: String, modifier: Modifier = Modifier, color: Color = SciFiTheme.Cyan) {
+    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(12.dp)
+                .background(color),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        TextDim(text = text, fontSize = 12.sp, letterSpacing = 2.sp, color = color)
+    }
+}
+
+/** 状态灯（主舞台版）：核心呼吸 + 双圈向外扩散的脉冲光环 —— "正在工作"的活感。 */
+@Composable
+fun HaloStatusDot(
+    color: Color,
+    modifier: Modifier = Modifier,
+    size: Dp = 44.dp,
+) {
+    val t = rememberInfiniteTransition(label = "halo")
+    val pulse by t.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing)),
+        label = "haloPulse",
+    )
+    Canvas(modifier = modifier.size(size)) {
+        val r = size.toPx() / 2f
+        // 扩散环 ×2（相位错开半拍）
+        for (k in 0..1) {
+            val ph = (pulse + k * 0.5f) % 1f
+            drawCircle(
+                color = color.copy(alpha = 0.30f * (1f - ph)),
+                radius = r * (0.55f + 0.75f * ph),
+                style = Stroke(width = 2.dp.toPx()),
+            )
+        }
+        // 辉光垫
+        drawCircle(color.copy(alpha = 0.16f), radius = r * 0.95f)
+        // 核心呼吸（三角波，省一次 sin 调用）
+        val core = 0.62f + 0.38f * (if (pulse < 0.5f) pulse * 2f else (1f - pulse) * 2f)
+        drawCircle(color.copy(alpha = core), radius = r * 0.38f)
+    }
+}
+
+/** 面板入场：淡入 + 轻微上移，按 order 依次亮相（0 最先）。 */
+@Composable
+fun Modifier.holoEntrance(order: Int): Modifier {
+    val alpha = remember { Animatable(0f) }
+    val yShift = remember { Animatable(20f) }
+    LaunchedEffect(Unit) {
+        delay(order * 80L)
+        launch { alpha.animateTo(1f, tween(420)) }
+        launch { yShift.animateTo(0f, tween(420, easing = FastOutSlowInEasing)) }
+    }
+    return this
+        .graphicsLayer { this.alpha = alpha.value }
+        .offset { IntOffset(0, yShift.value.roundToInt()) }
+}

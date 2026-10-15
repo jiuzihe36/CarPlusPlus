@@ -45,5 +45,6 @@
     <string name="sci_progress">进度</string>
     <string name="sci_label_refresh">刷新</string>
     <string name="sci_label_exit">车机首页</string>
-    <string name="sci_pin_hint">请在手机上输入配对码</string>
+    <string name="sci_date">日期</string>
+<string name="sci_pin_hint">请在手机上输入配对码</string>
 </resources>

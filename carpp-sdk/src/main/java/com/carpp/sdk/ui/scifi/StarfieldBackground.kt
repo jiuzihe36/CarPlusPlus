@@ -43,6 +43,14 @@ fun StarfieldBackground(modifier: Modifier = Modifier) {
         label = "twinkle",
     )
 
+    // 彗星：7 秒一巡，前 18% 时间从右上斜掠而过
+    val shot by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(7_000, easing = LinearEasing)),
+        label = "shot",
+    )
+
     // 星云呼吸（半径与浓度同相位）
     val nebula by transition.animateFloat(
         initialValue = 0f,
@@ -95,6 +103,29 @@ fun StarfieldBackground(modifier: Modifier = Modifier) {
                 color = Color.White.copy(alpha = s.alpha * twinkle),
                 radius = s.radiusPx,
                 center = Offset(s.x * w, yNorm * h),
+            )
+        }
+
+        // 彗星：右上 → 左下斜掠，头亮尾淡，行程约 1.2 秒
+        if (shot < 0.18f) {
+            val p = shot / 0.18f
+            val hx = w * (0.82f - 0.34f * p)
+            val hy = h * (0.10f + 0.24f * p)
+            val tail = w * 0.16f
+            // 方向（-0.86, 0.5）的反向即尾部
+            val tx = hx + 0.86f * tail
+            val ty = hy - 0.5f * tail
+            val a = (kotlin.math.sin(p * Math.PI).toFloat()) * 0.85f
+            drawLine(
+                brush = Brush.linearGradient(
+                    colors = listOf(SciFiTheme.Cyan.copy(alpha = a), SciFiTheme.Violet.copy(alpha = 0f)),
+                    start = Offset(hx, hy),
+                    end = Offset(tx, ty),
+                ),
+                start = Offset(hx, hy),
+                end = Offset(tx, ty),
+                strokeWidth = 2.5f,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round,
             )
         }
 

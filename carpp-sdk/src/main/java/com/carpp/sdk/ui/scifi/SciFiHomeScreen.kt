@@ -4,6 +4,7 @@ import android.content.Context
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -81,7 +82,8 @@ fun SciFiHomeScreen(
                 state = state,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(64.dp),
+                    .height(64.dp)
+                    .holoEntrance(0),
                 compact = compact,
                 onBrandLongPress = onOpenSettings,
             )
@@ -94,7 +96,8 @@ fun SciFiHomeScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .padding(top = 14.dp),
+                        .padding(top = 14.dp)
+                        .holoEntrance(2),
                 )
             } else {
                 Row(
@@ -109,21 +112,24 @@ fun SciFiHomeScreen(
                         onRefreshPin = onRefreshPin,
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .holoEntrance(1),
                     )
                     HeroPanel(
                         state = state,
                         onOpenProjection = onOpenProjection,
                         modifier = Modifier
                             .weight(1.7f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .holoEntrance(2),
                     )
                     SystemPanel(
                         state = state,
                         onOpenSettings = onOpenSettings,
                         modifier = Modifier
                             .weight(1f)
-                            .fillMaxHeight(),
+                            .fillMaxHeight()
+                            .holoEntrance(3),
                     )
                 }
             }
@@ -133,7 +139,8 @@ fun SciFiHomeScreen(
                 compact = compact,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 14.dp),
+                    .padding(top = 14.dp)
+                    .holoEntrance(4),
                 onOpenSettings = onOpenSettings,
                 onRefreshPin = onRefreshPin,
                 onOpenProjection = onOpenProjection,
@@ -221,7 +228,7 @@ private fun StatusPanel(
     modifier: Modifier = Modifier,
 ) {
     HoloPanel(modifier = modifier, padding = PaddingValues(18.dp)) {
-        TextDim(stringResource(R.string.sci_title_link), 12.sp, 2.sp)
+        PanelTitle(stringResource(R.string.sci_title_link))
         Spacer(modifier = Modifier.height(16.dp))
 
         val percent = state.progressPercent.toInt()
@@ -329,6 +336,7 @@ private fun HeroPanel(
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
+                PinSegments(modifier = Modifier.padding(top = 10.dp))
                 if (!compact) {
                     Spacer(modifier = Modifier.height(18.dp))
                     HoloProgress(
@@ -389,11 +397,7 @@ private fun HeroPanel(
             else -> {
                 Spacer(modifier = Modifier.weight(0.4f))
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    StatusDot(
-                        color = dotColor(state),
-                        pulse = !state.degraded,
-                        size = 44.dp,
-                    )
+                    HaloStatusDot(color = dotColor(state), size = 44.dp)
                 }
                 Spacer(modifier = Modifier.height(20.dp))
                 GlowText(
@@ -438,6 +442,7 @@ private fun HeroPanel(
                     )
                 }
             }
+            InfoRowRow(label = stringResource(R.string.sci_date), value = today())
             if (!state.degraded) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -472,11 +477,12 @@ private fun SystemPanel(
 ) {
     val context = LocalContext.current
     HoloPanel(modifier = modifier, padding = PaddingValues(18.dp)) {
-        TextDim(stringResource(R.string.sci_title_system), 12.sp, 2.sp)
+        PanelTitle(stringResource(R.string.sci_title_system))
         Spacer(modifier = Modifier.height(16.dp))
 
         InfoRowRow(label = stringResource(R.string.sci_version), value = "v${appVersion(context)}")
         InfoRowRow(label = stringResource(R.string.sci_protocol), value = "ICCOA CarLink")
+        InfoRowRow(label = stringResource(R.string.sci_date), value = today())
         if (state.degraded) {
             InfoRowRow(
                 label = stringResource(R.string.sci_title_link),
@@ -616,4 +622,28 @@ private fun appVersion(context: Context): String = try {
     context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "-"
 } catch (e: Exception) {
     "-"
+}
+
+
+private fun today(): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
+
+/** 配对码分段下划线：6 格、3+3 中间加宽距 —— 读码分组的视觉锚。 */
+@Composable
+private fun PinSegments(modifier: Modifier = Modifier) {
+    Row(modifier = modifier, horizontalArrangement = Arrangement.Center) {
+        repeat(6) { i ->
+            if (i == 3) {
+                Spacer(modifier = Modifier.width(12.dp))
+            } else if (i > 0) {
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            Box(
+                modifier = Modifier
+                    .width(34.dp)
+                    .height(5.dp)
+                    .background(SciFiTheme.Cyan.copy(alpha = 0.75f), RoundedCornerShape(2.5.dp)),
+            )
+        }
+    }
 }

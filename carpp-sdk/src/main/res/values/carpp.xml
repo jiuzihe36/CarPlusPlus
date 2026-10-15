@@ -53,5 +53,6 @@
 <string name="sci_progress">PROGRESS</string>
 <string name="sci_label_refresh">Refresh</string>
 <string name="sci_label_exit">Home</string>
+<string name="sci_date">Date</string>
 <string name="sci_pin_hint">Enter this code on your phone</string>
 </resources>
