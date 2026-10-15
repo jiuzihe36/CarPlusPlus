@@ -150,7 +150,6 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
 
     override fun onPinCode(pinCode: String?, carDeviceName: String?) {
         AppLog.i("ICCOA: pinCode=$pinCode carDeviceName=$carDeviceName")
-        // 协议回传的 carDeviceName 是 SDK 默认的「MiAutoCar」，对外一律展示品牌名 Car++。
         _state.update {
             it.copy(phase = LinkPhase.Pairing, pinCode = pinCode, carDeviceName = "Car++", progress = null)
         }

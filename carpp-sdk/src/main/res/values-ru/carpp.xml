@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="da_brand">Car++</string>
     <string name="da_tagline">CAR++ · В АВТОМОБИЛЕ</string>
     <string name="da_headline">Ваш телефон на экране автомобиля.</string>
     <string name="da_description">Выведите экран телефона на этот дисплей или на приборную панель / HUD.\nОткройте Xiaomi CarWith, OPPO Car+ или vivo Jovi InCar на телефоне и выберите этот автомобиль.</string>
@@ -13,7 +12,6 @@
     <string name="da_pin_label">КОД СОПРЯЖЕНИЯ</string>
     <string name="da_refresh_pin">Обновить код</string>
     <string name="da_hint">Оставьте Bluetooth и Wi-Fi включёнными. Откройте Xiaomi CarWith, OPPO Car+ или vivo Jovi InCar на телефоне, выберите этот автомобиль и сверьте код сопряжения, показанный здесь.</string>
-    <string name="da_wireless">CAR++ CARLINK · CARWITH / CAR+ / JOVI</string>
     <string name="da_usb">Сопряжение по Bluetooth</string>
     <string name="da_usb_hint">Сначала выполните сопряжение с этим автомобилем в настройках Bluetooth телефона.</string>
     <string name="da_settings">Настройки</string>

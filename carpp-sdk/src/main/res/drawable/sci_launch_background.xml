@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 启动窗口底色：深空黑 + 偏心紫晕（径向渐变）。纯 shape，零位图 ——
+     替代原「旧启动图」，消除启动瞬间闪旧画面的问题。 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <gradient
+        android:type="radial"
+        android:centerX="0.5"
+        android:centerY="0.42"
+        android:gradientRadius="900dp"
+        android:startColor="#1A1240"
+        android:centerColor="#0A0A24"
+        android:endColor="#010210" />
+</shape>

@@ -1,6 +1,0 @@
-<?xml version="1.0" ?>
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@color/da_background"/>
-    <!-- Car++ 自有图标（圆角毛玻璃蓝底 + 橙色「MA」拱形），由 branding/master_frost.png 生成 -->
-    <item android:width="120dp" android:height="120dp" android:gravity="center" android:drawable="@drawable/ic_ma_logo"/>
-</layer-list>

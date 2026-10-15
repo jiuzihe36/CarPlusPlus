@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="da_brand">Car++</string>
     <string name="da_tagline">Car++Car · 車機端</string>
     <string name="da_headline">手機內容，盡在車機大屏。</string>
     <string name="da_description">把手機投屏到這塊車機螢幕或儀表板/HUD。\n在手機上開啟小米 CarWith、OPPO Car+ 車聯或 vivo Jovi InCar，選擇本車機即可開始。</string>
@@ -13,7 +12,6 @@
     <string name="da_pin_label">配對碼</string>
     <string name="da_refresh_pin">重新產生配對碼</string>
     <string name="da_hint">請保持藍牙與 Wi-Fi 開啟。在手機上開啟小米 CarWith、OPPO Car+ 車聯或 vivo Jovi InCar，選擇本車機後核對此處顯示的配對碼。</string>
-    <string name="da_wireless">CAR++ CARLINK · CARWITH / CAR+ / JOVI</string>
     <string name="da_usb">透過藍牙配對</string>
     <string name="da_usb_hint">請先在手機的藍牙設定中與本車機配對。</string>
     <string name="da_settings">設定</string>

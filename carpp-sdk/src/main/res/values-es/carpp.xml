@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="da_brand">Car++</string>
     <string name="da_tagline">CAR++ · EN TU COCHE</string>
     <string name="da_headline">Tu teléfono, en la pantalla del coche.</string>
     <string name="da_description">Proyecta tu teléfono en esta pantalla o en el cuadro / HUD.\nAbre Xiaomi CarWith, OPPO Car+ o vivo Jovi InCar en el teléfono y elige este coche para empezar.</string>
@@ -13,7 +12,6 @@
     <string name="da_pin_label">CÓDIGO DE EMPAREJAMIENTO</string>
     <string name="da_refresh_pin">Actualizar código</string>
     <string name="da_hint">Mantén Bluetooth y Wi-Fi activados. Abre Xiaomi CarWith, OPPO Car+ o vivo Jovi InCar en tu teléfono, elige este coche y comprueba el código que aparece aquí.</string>
-    <string name="da_wireless">CAR++ CARLINK · CARWITH / CAR+ / JOVI</string>
     <string name="da_usb">Emparejar por Bluetooth</string>
     <string name="da_usb_hint">Empareja este coche primero en los ajustes Bluetooth del teléfono.</string>
     <string name="da_settings">Ajustes</string>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 自适应图标前景层：星际轨道 —— 紫外环 + 青色主环（带辉光）+ 中心光点 + 金色伴星。
+     替代原「MA 字形」前景；内容收在 108 画布中央 66% 安全区内，圆/方裁切都不丢。 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 外圈：晶格紫细环 -->
+    <path
+        android:pathData="M54,23 a31,31 0 1,0 0.01,0 z"
+        android:fillColor="#00000000"
+        android:strokeColor="#7B68EE"
+        android:strokeAlpha="0.85"
+        android:strokeWidth="1.5" />
+
+    <!-- 主环辉光（低透明宽描边模拟发光） -->
+    <path
+        android:pathData="M54,29 a25,25 0 1,0 0.01,0 z"
+        android:fillColor="#00000000"
+        android:strokeColor="#00F0FF"
+        android:strokeAlpha="0.18"
+        android:strokeWidth="8" />
+
+    <!-- 主环：星光青 -->
+    <path
+        android:pathData="M54,29 a25,25 0 1,0 0.01,0 z"
+        android:fillColor="#00000000"
+        android:strokeColor="#00F0FF"
+        android:strokeWidth="4" />
+
+    <!-- 中心光点 -->
+    <path
+        android:pathData="M47,54 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0"
+        android:fillColor="#00F0FF" />
+
+    <!-- 金色伴星（轨道45°位） -->
+    <path
+        android:pathData="M67.2,36.3 a4.5,4.5 0 1,0 9,0 a4.5,4.5 0 1,0 -9,0"
+        android:fillColor="#FFD200" />
+</vector>

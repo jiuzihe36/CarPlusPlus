@@ -22,10 +22,12 @@
         <item name="android:windowFullscreen">true</item>
     </style>
 
+    <!-- 启动窗口主题：点图标到首帧之间系统画的那张底 ——
+         深空星云（纯形状渐变，与主页同一世界观），保证启动瞬间不闪旧画面。 -->
     <style name="SplashTheme" parent="AppTheme">
-        <item name="android:windowBackground">@drawable/splash_background</item>
-        <item name="android:statusBarColor">@color/color_projection_blue</item>
-        <item name="android:navigationBarColor">@color/color_projection_blue</item>
+        <item name="android:windowBackground">@drawable/sci_launch_background</item>
+        <item name="android:statusBarColor">@color/sci_space_black</item>
+        <item name="android:navigationBarColor">@color/sci_space_black</item>
     </style>
 
     <style name="SplashTheme.Fullscreen" parent="SplashTheme">

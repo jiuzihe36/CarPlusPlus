@@ -33,10 +33,8 @@ import com.carpp.sdk.utils.AppLog
 import com.carpp.sdk.utils.AppPermissions
 import android.content.res.Configuration
 import com.carpp.sdk.utils.Settings
-import android.os.SystemClock
 import com.carpp.sdk.utils.SystemUI
 import com.bumptech.glide.Glide
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -128,11 +126,6 @@ class MainActivity : BaseActivity() {
         ) {
             AppLog.i("MainActivity: Active session detected in onCreate, bringing projection to front")
             bringProjectionToFront()
-
-            // If we are auto-forwarding, hide the splash immediately to avoid flashing it twice
-            if (savedInstanceState == null) {
-                findViewById<View>(R.id.splash_overlay)?.visibility = View.GONE
-            }
         }
 
         setTheme(R.style.AppTheme)
@@ -183,16 +176,6 @@ class MainActivity : BaseActivity() {
                 }
             }
         })
-
-        if (savedInstanceState == null) {
-            val elapsedSinceStart = SystemClock.elapsedRealtime() - App.appStartTime
-            val targetTotalDuration = 250L
-            val actualDelay = (targetTotalDuration - elapsedSinceStart).coerceAtLeast(0L)
-            
-            showSplashWithDelay(actualDelay)
-        } else {
-            findViewById<View>(R.id.splash_overlay)?.visibility = View.GONE
-        }
 
         // Runtime permissions are requested by the setup wizard's permissions step on fresh
         // installs; for users who already finished onboarding we request them from checkSetupFlow().
@@ -443,9 +426,6 @@ class MainActivity : BaseActivity() {
 
         pill.visibility = View.VISIBLE
         pill.bringToFront()
-        // Suppress the launch splash if it is still up so the pill is visible
-        // immediately on auto-connect from a cold start.
-        findViewById<View>(R.id.splash_overlay)?.visibility = View.GONE
     }
 
     private fun hideAutoConnectPill() {
@@ -479,9 +459,6 @@ class MainActivity : BaseActivity() {
         overlay.alpha = 1f
         overlay.visibility = View.VISIBLE
         overlay.bringToFront()
-        // Once the auto-connect overlay is up there is no point keeping the
-        // launch splash around — they would just stack the same dark background.
-        findViewById<View>(R.id.splash_overlay)?.visibility = View.GONE
 
         setupAutoConnectMedia()
     }
@@ -690,22 +667,6 @@ class MainActivity : BaseActivity() {
         }
 
 
-    }
-
-    private fun showSplashWithDelay(delayMs: Long) {
-        val overlay = findViewById<View>(R.id.splash_overlay) ?: return
-        lifecycleScope.launch(Dispatchers.Main) {
-            if (delayMs > 0) {
-                delay(delayMs)
-            }
-            overlay.animate()
-                .alpha(0f)
-                .setDuration(300)
-                .withEndAction {
-                    overlay.visibility = View.GONE
-                }
-                .start()
-        }
     }
 
     override fun onStart() {
