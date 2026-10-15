@@ -40,4 +40,8 @@
     <string name="da_bluetooth_music">通过车辆蓝牙播放音乐</string>
     <string name="da_bluetooth_music_hint">让音乐通过车辆蓝牙播放器播放。Car++ 不改变其音频焦点；导航和助手音频仍可使用。更改后请重新连接。</string>
     <string name="da_legal">Car++ 是独立的第三方开源项目，以 Car++ Pro 与 Car++ 为基座，与比亚迪（BYD）、ICCOA、Google、小米、OPPO、vivo 及其商标持有者均无任何隶属、授权或合作关系。ICCOA CarLink 是由小米、OPPO、vivo 联合发起的车内互联标准；小米 CarWith、OPPO Car+ 车联与 vivo Jovi InCar 是它在手机侧的三个前端，Car++ 则是它在车机侧的独立接收端。文中提及的名称与商标归各自所有者所有。本项目仅供学习与技术交流使用，请勿用于商业用途；使用所产生的一切后果由使用者自行承担。</string>
+    <string name="sci_title_link">连接状态</string>
+    <string name="sci_title_system">系统信息</string>
+    <string name="sci_version">版本</string>
+    <string name="sci_protocol">协议</string>
 </resources>
