@@ -835,10 +835,14 @@ class MainActivity : BaseActivity() {
         ContextCompat.registerReceiver(this, orientationReceiver, android.content.IntentFilter(ACTION_ORIENTATION_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         isOrientationReceiverRegistered = true
 
-        // 会话已建立就把投影页带到前台（例如从设置页返回）；投影页已经在前台时不要叠第二份。
-        if (App.provide(this).phoneLink?.state?.value?.phase == LinkPhase.Connected &&
+        // 连接已建立：用户从车机桌面回来，直接投屏
+        val phoneLink = App.provide(this).phoneLink
+        val state = phoneLink?.state?.value
+        if (state?.phase == LinkPhase.Connected &&
             !App.isPiPActive && PhoneLinkRegistry.provider()?.projectionForeground != true) {
-            AppLog.i("MainActivity: Active session detected, bringing projection to front")
+            // 用户主动打开 App = 需要投屏，重置策略：允许自动打开
+            ProjectionEntryPolicy.shared.onUserReopen()
+            AppLog.i("MainActivity: Session active (phase=${state.phase}), bringing projection to front")
             bringProjectionToFront()
         }
     }
