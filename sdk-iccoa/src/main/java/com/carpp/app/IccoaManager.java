@@ -132,6 +132,16 @@ public class IccoaManager {
     // ---- 屏幕尺寸 ----
     private int screenW = 1920, screenH = 720, videoW = 1920, videoH = 720;
 
+    /**
+     * 投屏画面所在 View 的像素尺寸（0 = 还不知道，回落到面板尺寸）。
+     *
+     * <p>SDK 的 {@code UCarSurfaceView} 上报的是 View 坐标，UIBC 下发前 SDK 会按
+     * 「显示区 → 码流」缩放，而显示区尺寸就是 {@code startCast(surface, w, h)} 的 w/h。
+     * 面板分辨率与 View 尺寸并不总是相等（车机横向、测试机纵向时正好差 90°），
+     * 用错了点到的位置和画面里的位置就对不上。
+     */
+    private int viewW = 0, viewH = 0;
+
     public IccoaManager(Context ctx, Listener listener) {
         this.appCtx = ctx.getApplicationContext();
         this.listener = listener;
@@ -139,6 +149,24 @@ public class IccoaManager {
 
     public void setScreenSize(int w, int h) {
         screenW = w; screenH = h; videoW = w; videoH = h;
+    }
+
+    /**
+     * 投屏 View 的像素尺寸 = 触摸坐标空间。必须在投屏开始前调用（SDK 只在
+     * {@code startCast} 里设置 UIBC 的显示区尺寸，之后没有单独的入口改它）。
+     */
+    public void setProjectionViewSize(int w, int h) {
+        if (w <= 0 || h <= 0) return;
+        if (w == viewW && h == viewH) return;
+        // SDK 只在 startCast 里设置 UIBC 的显示区尺寸，投屏起来之后没有入口改它：
+        // 画面区域变了（旋转 / 分屏）而投屏已经在跑，触摸坐标就会按旧尺寸换算而整体偏移，
+        // 只能断开重连。投影页因此锁了横向（车机本身就是横向画布），这里再吼一声方便定位。
+        if (castStarted) {
+            log("! 投屏进行中画面区域从 " + viewW + "x" + viewH + " 变成 " + w + "x" + h
+                    + " —— SDK 无法热更新触摸坐标空间，需断开重连才生效");
+        }
+        viewW = w; viewH = h;
+        log("投屏视图尺寸 = " + w + "x" + h + "（触摸坐标空间）");
     }
 
     public String getLastPinCode() { return lastPinCode; }
@@ -306,9 +334,13 @@ public class IccoaManager {
             return;
         }
         castRetry = 0;
-        boolean ok = adapter.startCast(s, videoW, videoH);
+        // startCast 的 w/h 是 UIBC 的显示区尺寸（触摸坐标空间）：知道 View 真实尺寸时用它，
+        // 否则回落到面板尺寸。视频码流尺寸由 SDK 自己从链路里取，与这里的 w/h 无关。
+        int cw = viewW > 0 ? viewW : videoW;
+        int ch = viewH > 0 ? viewH : videoH;
+        boolean ok = adapter.startCast(s, cw, ch);
         castStarted = ok;
-        log((ok ? "✓ " : "✗ ") + "startCast(" + videoW + "x" + videoH + ") = " + ok);
+        log((ok ? "✓ " : "✗ ") + "startCast(" + cw + "x" + ch + ") = " + ok);
         if (ok) {
             main.post(listener::onCastStarted);
         }

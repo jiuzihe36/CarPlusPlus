@@ -4,11 +4,16 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- The ICCOA SDK renders the phone's Miracast stream straight into this surface. -->
-    <SurfaceView
+    <!-- The ICCOA SDK renders the phone's Miracast stream straight into this surface.
+         UCarSurfaceView（SDK 自带）而不是裸 SurfaceView：它在 onTouchEvent 里把每一帧
+         手指事件转成 UCarAdapter.sendTouchEvent，是 SDK 唯一支持的触摸回传入口。
+         clickable 必须为 true —— 否则 View.onTouchEvent 返回 false，ViewGroup 只把
+         ACTION_DOWN 投给它，后续 MOVE/UP 全部丢失（表现是点了没反应或一直按住）。 -->
+    <com.ucar.vehiclesdk.UCarSurfaceView
         android:id="@+id/icoca_surface"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:clickable="true" />
 
     <TextView
         android:id="@+id/icoca_hint"

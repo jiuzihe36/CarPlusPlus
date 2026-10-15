@@ -91,6 +91,17 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
     override fun setScreenSize(width: Int, height: Int) = manager.setScreenSize(width, height)
 
     /**
+     * 投屏 View 的像素尺寸 = 触摸坐标空间。
+     *
+     * SDK 的 `UCarSurfaceView` 上报的是 **View 坐标**，而 UIBC 回传前 SDK 会按
+     * 「显示区 → 码流」缩放（`UibcManager.getTouchCoordinateX/Y` 用 display/source 相除）。
+     * 显示区尺寸就是 `startCast(surface, w, h)` 的 w/h，所以这里必须是 View 的真实尺寸：
+     * 拿面板分辨率（车机横向、手机纵向时两者不相等）会整体偏移。
+     */
+    override fun setProjectionViewSize(width: Int, height: Int) =
+        manager.setProjectionViewSize(width, height)
+
+    /**
      * Hands the projection [surface] to the SDK. Idempotent: the SDK ignores a repeated call for
      * an already-casting surface, and [IccoaManager] only starts the cast once.
      * `null`（surface 已销毁）时不做事 —— SDK 没有对应的解绑入口。

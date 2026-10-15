@@ -133,3 +133,35 @@ pref key `native-ap-transport`）决定，`IccoaManager.buildConfig()` 读它：
   并自动改走 P2P —— 所以**只开 P2P 是安全的兜底**。
 - `UCarConfig` 是 **init-once**：改设置后要重启 App 才生效。
 
+## 8. 触摸回传（UIBC）：三个条件缺一个就「点了没反应」
+
+车机端把手指事件回传给手机，SDK 自己就能做 —— 但必须三样都满足。Car++ 第一版**三样都没做**
+（投屏页用的是裸 `SurfaceView`，整条回传路径压根不存在），表现就是「画面能看，但点什么都没反应」。
+
+| 条件 | Car++ 的做法 | 漏了会怎样 |
+|---|---|---|
+| 用 SDK 自带的 `UCarSurfaceView` | `activity_icoca_projection.xml` 里直接写 `<com.ucar.vehiclesdk.UCarSurfaceView>` | 裸 `SurfaceView` 不转发任何触摸：`UCarAdapter.sendTouchEvent()` 一次都不会被调用 |
+| 布局里 `android:clickable="true"` | 同上 | `UCarSurfaceView.onTouchEvent` 最后 return `super.onTouchEvent()`，未 clickable 时是 `false` → ViewGroup 只投 ACTION_DOWN，后续 MOVE/UP 全部丢失（表现是点了没反应，或一直「按住」不放） |
+| 触摸坐标空间 = 投屏 View 的像素尺寸 | 投屏页 `bindSurface()` 里先 `PhoneLink.setProjectionViewSize(view.width, view.height)`，**再** `setSurface()` | 用面板分辨率当坐标空间 → 触摸整体偏移（点中心落到右上角） |
+
+细节（都是读 SDK 字节码 + 真机日志确认过的）：
+
+- `UCarSurfaceView.onTouchEvent` 把 `getX/getY` 原样交给
+  `UCarAdapter.sendTouchEvent(action, pointerCount, ids, xs, ys)`，`UibcManager` 再按
+  `display → source` 缩放：`getTouchCoordinateX(x) = x * mSourceWidth / mDisplayWidth`。
+- **display 尺寸就是 `startCast(surface, w, h)` 的 w/h**（`UCarAdapter.lambda$startCast$25` 里
+  `setDisplayWidth(w)` / `setDisplayHeight(h)`），SDK 没有单独的 setter。所以 `startCast` 的
+  w/h **不是码流分辨率，而是触摸坐标空间**；码流尺寸由 SDK 自己从链路里取（真机实测 source = 1600x720）。
+- 投屏起来之后**没有入口**再改 display 尺寸 → 中途旋转 / 分屏会让坐标空间过期，只能断开重连。
+  ICCOA 投屏页因此锁 `sensorLandscape`（车机本来就是横向画布，MainActivity 也是按长边在前声明的）。
+  `IccoaManager.setProjectionViewSize()` 在投屏进行中收到新尺寸时会打一条明确告警。
+- 手机**息屏**时手机侧不再出帧，镜像画面冻结（连拍两张 0.00% 差异），此时点什么都不动 ——
+  排查触摸之前先确认手机是亮屏的。
+- 验证方法（不用猜）：logcat 里 `UCar_UibcManager` 会打
+  `origin point: (x, y), display size: (w, h), source size: (w, h), mapped point: (x, y)`，
+  一眼就能看出坐标空间对不对。真机实测：
+  `origin (330,360) → mapped (345,360)`、`origin (1030,360) → mapped (1077,360)`（×1600/1530）。
+- 端到端判定「被投界面真的响应」：车机上左右滑动 → 手机 CarWith 界面在「地图页 ↔ 天气/步数页」
+  之间来回切，且切回来时路名标签回到原位（可逆）—— 说明是车机端的触摸在驱动手机，
+  而不是画面自己在变。
+

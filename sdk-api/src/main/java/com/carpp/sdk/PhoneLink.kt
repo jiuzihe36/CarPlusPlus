@@ -95,6 +95,15 @@ interface PhoneLink {
     /** 车机屏幕分辨率，驱动协商出来的码流分辨率。 */
     fun setScreenSize(width: Int, height: Int)
 
+    /**
+     * 承载手机画面的那块 View 的像素尺寸 —— **触摸坐标就以这个空间上报**。
+     *
+     * 它和 [setScreenSize] 不是一回事：后者是面板分辨率（决定手机协商出多大的码流），
+     * 前者是投屏画面实际占用的区域（决定「点到的位置对应画面哪里」）。协议实现负责把它
+     * 换算成码流坐标，所以必须在投屏开始前调用；画面区域变了（旋转 / 分屏）要重新调用。
+     */
+    fun setProjectionViewSize(width: Int, height: Int)
+
     /** 把投影 [surface] 交给协议实现；null 表示 surface 已销毁。幂等。 */
     fun setSurface(surface: Surface?)
 

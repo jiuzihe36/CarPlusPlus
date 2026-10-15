@@ -99,6 +99,7 @@ class PhoneLinkRegistryDegradedTest {
             override fun refreshPairing() {}
             override fun disconnectSession() {}
             override fun setScreenSize(width: Int, height: Int) {}
+            override fun setProjectionViewSize(width: Int, height: Int) {}
             override fun setSurface(surface: android.view.Surface?) {}
             override fun lastPinCode(): String? = null
         }
@@ -139,6 +140,7 @@ class PhoneLinkRegistryDegradedTest {
                     override fun refreshPairing() {}
                     override fun disconnectSession() {}
                     override fun setScreenSize(width: Int, height: Int) {}
+                    override fun setProjectionViewSize(width: Int, height: Int) {}
                     override fun setSurface(surface: android.view.Surface?) {}
                     override fun lastPinCode(): String? = null
                 }
