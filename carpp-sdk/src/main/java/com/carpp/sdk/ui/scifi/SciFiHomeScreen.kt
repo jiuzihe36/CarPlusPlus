@@ -519,18 +519,6 @@ private fun BottomBar(
                     primary = true,
                     contentDescription = "projection",
                 )
-            } else if (!compact) {
-                // 没有可投的屏时，中位放等待提示（与旧版「等待手机连接」同义）。
-                // 窄屏收起（主面板状态头已表达同一状态，底栏塞不下）。
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    StatusDot(
-                        color = dotColor(state),
-                        pulse = !state.degraded,
-                        size = 10.dp,
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
-                    TextDim(stringResource(state.statusRes), 14.sp, 1.sp)
-                }
             }
             BottomAction(
                 icon = SciFiIcons.home,
