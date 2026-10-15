@@ -113,10 +113,12 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
     }
 
     override fun onConnectionState(stateCode: Int) {
+        // SDK 的 UCarConnectState 状态：1 断开 / 2 已连接 / 3 连接失败 / 4 投屏建立 /
+        // 5 投屏断开 / 6 回主页 / 7 回前台 / 11 用户主动断开。
+        // 2/4/6/7 都表示会话仍然活着（6、7 只是前后台切换），一律保持 Connected，
+        // 否则投屏期间切一次前后台就会把界面打回「等待手机连接」。
         val phase = when (stateCode) {
-            0 -> LinkPhase.Advertising
-            1, 2 -> LinkPhase.Pairing
-            3 -> LinkPhase.Connected
+            2, 4, 6, 7 -> LinkPhase.Connected
             else -> LinkPhase.Advertising
         }
         AppLog.i("ICCOA: connection state $stateCode -> $phase")
@@ -125,9 +127,16 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
 
     override fun onPinCode(pinCode: String?, carDeviceName: String?) {
         AppLog.i("ICCOA: pinCode=$pinCode carDeviceName=$carDeviceName")
+        // 协议回传的 carDeviceName 是 SDK 默认的「MiAutoCar」，对外一律展示品牌名 Car++。
         _state.update {
-            it.copy(phase = LinkPhase.Pairing, pinCode = pinCode, carDeviceName = carDeviceName)
+            it.copy(phase = LinkPhase.Pairing, pinCode = pinCode, carDeviceName = "Car++", progress = null)
         }
+    }
+
+    /** 协议下发的真实协商进度（0–100）。只在配对 / 建通道阶段有意义，进度环优先用它。 */
+    override fun onConnectingProgress(progress: Int) {
+        AppLog.i("ICCOA: connecting progress=$progress")
+        _state.update { it.copy(progress = progress.coerceIn(0, 100)) }
     }
 
     override fun onCastStarted() {
@@ -164,6 +173,9 @@ class IcocaBridge(context: Context) : PhoneLink, IccoaManager.Listener {
             current.copy(
                 phase = phase,
                 pinCode = if (phase == LinkPhase.Pairing) current.pinCode else null,
+                // 真实协商进度只在 Pairing 阶段有效；一旦连接成功或断开就归位，
+                // 让进度环回到「阶段映射」口径（Connected=满，断开=0）。
+                progress = if (phase == LinkPhase.Pairing) current.progress else null,
             )
         }
     }

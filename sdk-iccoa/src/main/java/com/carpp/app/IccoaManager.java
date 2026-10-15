@@ -40,6 +40,8 @@ public class IccoaManager {
         /** 已连接状态变化：0 断开 / 1 连接中 / 2 已连接 / 3 已建立 */
         void onConnectionState(int state);
         void onPinCode(String pinCode, String carDeviceName);
+        /** 协商阶段的真实连接进度（0–100）；仅在手机配对 / 建立数据通道时回调。 */
+        void onConnectingProgress(int progress);
         void onCastStarted();
         /** 手机导航信息（POC-2 / BYD 仪表与 HUD 的数据源）。 */
         void onNavigation(UCarCommon.NavigationInfo info);
@@ -327,30 +329,45 @@ public class IccoaManager {
         }
 
         @Override
-        public void onConnectStateChanged(String deviceID, int oldState, int newState) {
-            log("onConnectStateChanged " + stateName(oldState) + " -> " + stateName(newState));
-            if (newState == 0 && oldState != 0) {
-                // 会话真正结束（不是启动时的初始 DISCONNECTED）。清掉已过期的配对码并延时重新
-                // 广播：手机端 CarWith 会重新发现车机并触发一次全新配对（新的 onPinCode）。
+        public void onConnectStateChanged(String deviceID, int state, int extra) {
+            // ★ SDK 的签名是 (deviceId, state, extra)：**第 2 个参数才是状态**，第 3 个是附加码
+            //   （连接失败时是错误码如 10008，其余情况为 -1）。
+            //   早先按 (oldState, newState) 来读，于是「连接成功」那次回调 (state=2, extra=-1)
+            //   被当成新状态 -1，落进 else 分支回落成「广播中」——UI 因此永远停在「等待手机连接」，
+            //   而底层其实早已连上并在传视频。
+            log("onConnectStateChanged " + stateName(state) + " extra=" + extra);
+
+            if (state == STATE_DISCONNECT || state == STATE_CAST_DISCONNECTED
+                    || state == STATE_DISCONNECT_BY_USER) {
+                // 会话结束：清掉已过期的配对码并延时重新广播，手机端 CarWith 会重新发现车机
+                // 并触发一次全新配对（新的 onPinCode）。
                 sessionActive = false;
                 lastPinCode = null;
                 castStarted = false;
                 scheduleReAdvertise();
                 scheduleAutoRefresh();
-            } else if (newState == 2 || newState == 3) {
-                // 已连上：撤销任何待执行的重新广播，免得刚连上就被重启广播打断；看门狗也会因此空转。
+            } else if (state == STATE_CONNECTED || state == STATE_CAST_CONNECTED
+                    || state == STATE_GO_TO_HOME || state == STATE_BACK_TO_FOREGROUND) {
+                // 已连上（含投屏建立、前后台切换）：撤销任何待执行的重新广播，免得刚连上就被
+                // 重启广播打断；看门狗也会因此空转。
                 sessionActive = true;
                 main.removeCallbacks(reAdvertiseRunnable);
+            } else if (state == STATE_CONNECT_FAILED) {
+                log("✗ 连接失败 errorCode=" + extra);
+                sessionActive = false;
+                scheduleReAdvertise();
             }
-            // newState == 1（CONNECTING）刻意不置 sessionActive：若协商卡死超过一个刷新周期，
+            // CONNECTING 等中间态刻意不置 sessionActive：若协商卡死超过一个刷新周期，
             // 看门狗需要能重播把它救回来。正常协商只需数秒，30 秒的余量足够。
-            final int st = newState;
+
+            final int st = state;
             main.post(() -> listener.onConnectionState(st));
         }
 
         @Override
         public void onConnectingProgress(String phoneId, int progress) {
             log("onConnectingProgress " + progress);
+            main.post(() -> listener.onConnectingProgress(progress));
         }
 
         @Override
@@ -435,6 +452,18 @@ public class IccoaManager {
                 .setSupportAppWindowCast(false)
                 .build();
 
+        // 连接方式跟随设置里的「网络传输方式」(Settings.nativeApTransport)：
+        //   0 = WiFi Direct(P2P) —— 车机与手机直连组网，普通应用权限即可
+        //   1 = 热点(SoftAP)     —— 车机自己开热点，需 TETHER_PRIVILEGED 系统签名权限
+        // 注意：SDK 是 init-once，改设置后需重启 App 生效。
+        boolean useSoftAp = false;
+        try {
+            useSoftAp = new com.carpp.sdk.utils.Settings(appCtx).getNativeApTransport() == 1;
+        } catch (Throwable t) {
+            log("! 读取 nativeApTransport 失败，回落 WiFi Direct: " + t);
+        }
+        log("连接方式 = " + (useSoftAp ? "热点(SoftAP)" : "WiFi Direct(P2P)"));
+
         return new UCarConfig.Builder()
                 .setCarBrMac(carId)                  // 必须恰好 6 字节
                 .setDpi(dpi)                         // 120..640
@@ -444,8 +473,8 @@ public class IccoaManager {
                 .setScreenHeight(sh)
                 .setVideoDisplayWidth(vw)
                 .setVideoDisplayHeight(vh)
-                .setSupportP2P(true)
-                .setSupportSoftAP(true)
+                .setSupportP2P(!useSoftAp)           // 设置选 WiFi Direct 时走 P2P
+                .setSupportSoftAP(useSoftAp)         // 设置选「热点」时才用 SoftAP
                 .setSupportCamera(false)
                 .setSupportHevc(false)
                 .setSupportMic(true)
@@ -514,12 +543,26 @@ public class IccoaManager {
         try { r.run(); } catch (Throwable t) { log("!!! " + where + " 异常: " + t); }
     }
 
+    // SDK 的 UCarConnectState 状态常量（第 2 个回调参数），见 com.ucar.vehiclesdk.UCarConnectState
+    private static final int STATE_DISCONNECT = 1;              // UCAR_DEVICE_DISCONNECT
+    private static final int STATE_CONNECTED = 2;               // UCAR_DEVICE_CONNECTED
+    private static final int STATE_CONNECT_FAILED = 3;          // UCAR_DEVICE_CONNECT_FAILED
+    private static final int STATE_CAST_CONNECTED = 4;          // UCAR_DEVICE_CAST_CONNECTED
+    private static final int STATE_CAST_DISCONNECTED = 5;       // UCAR_DEVICE_CAST_DISCONNECTED
+    private static final int STATE_GO_TO_HOME = 6;              // UCAR_DEVICE_GO_TO_HOME
+    private static final int STATE_BACK_TO_FOREGROUND = 7;      // UCAR_DEVICE_BACK_TO_FOREGROUND
+    private static final int STATE_DISCONNECT_BY_USER = 11;     // DISCONNECT_BY_USER
+
     private static String stateName(int s) {
         switch (s) {
-            case 0: return "DISCONNECTED";
-            case 1: return "CONNECTING";
-            case 2: return "CONNECTED";
-            case 3: return "ESTABLISHED";
+            case STATE_DISCONNECT: return "DISCONNECT";
+            case STATE_CONNECTED: return "CONNECTED";
+            case STATE_CONNECT_FAILED: return "CONNECT_FAILED";
+            case STATE_CAST_CONNECTED: return "CAST_CONNECTED";
+            case STATE_CAST_DISCONNECTED: return "CAST_DISCONNECTED";
+            case STATE_GO_TO_HOME: return "GO_TO_HOME";
+            case STATE_BACK_TO_FOREGROUND: return "BACK_TO_FOREGROUND";
+            case STATE_DISCONNECT_BY_USER: return "DISCONNECT_BY_USER";
             default: return "STATE_" + s;
         }
     }

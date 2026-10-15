@@ -17,16 +17,16 @@ import android.view.animation.DecelerateInterpolator
  * 环形连接进度：背景环 + 渐变进度弧 + 中心百分比数字。
  *
  * ## 百分比是哪来的
- * ICCOA CarLink 只给出四个阶段（Idle / Advertising / Pairing / Connected），**没有真实百分比**。
- * 所以 [setProgress] 的值由调用方按阶段映射而来：
+ * 优先用协议下发的**真实**协商进度（[com.carpp.sdk.sdk.LinkState.progress]，0–100，
+ * ICCOA 的 `onConnectingProgress` 在手机 Wi-Fi 直连 / 热点协商推进时持续回调）。
+ * 当协议没给真实进度时，[setProgress] 的值由调用方按阶段映射而来：
  * ```
  *   Idle        →   0%
- *   Advertising →  33%
- *   Pairing     →  66%
+ *   Advertising →   0%   （等待连接，从 0 起）
+ *   Pairing     →   0%   （出配对码，从 0 起；手机输入后由真实进度接管）
  *   Connected   → 100%
  * ```
- * 中心显示的就是这个映射值 —— 它代表「走到哪一段了」，不是协议承诺的剩余时间。
- * 在没有真实进度的阶段里，动画只负责让阶段切换不突兀。
+ * 中心显示的就是这个值 —— 有真实进度时它反映真实进展，没有时是「走到哪一段了」。
  */
 class RingProgressView @JvmOverloads constructor(
     context: Context,

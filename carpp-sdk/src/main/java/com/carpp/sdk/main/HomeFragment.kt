@@ -40,8 +40,9 @@ class HomeFragment : Fragment() {
         inflater.inflate(R.layout.fragment_home, container, false)
 
     override fun onViewCreated(view: View, state: Bundle?) {
-        view.findViewById<View>(R.id.settings_button).setOnClickListener {
+        view.findViewById<View>(R.id.brand_area).setOnLongClickListener {
             startActivity(Intent(requireContext(), SettingsActivity::class.java))
+            true
         }
         // Going back to the car does not tear down a connection or disable reconnect.
         view.findViewById<View>(R.id.exit_button).setOnClickListener {
@@ -57,7 +58,14 @@ class HomeFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                app.phoneLink?.state?.collect { render(it) }
+                val link = app.phoneLink
+                if (link == null) {
+                    // 协议实现没起来（典型：缺 icar-sdk.dex）。这时没有任何 StateFlow 可收集，
+                    // 若不显式渲染，界面会一直停在「等待手机连接」，用户只会以为配对码坏了。
+                    renderDegraded()
+                } else {
+                    link.state.collect { render(it) }
+                }
             }
         }
 
@@ -87,20 +95,14 @@ class HomeFragment : Fragment() {
         }
         view.findViewById<TextView>(R.id.connection_status)?.text = status
 
-        // 进度环：阶段 → 百分比（协议没有真实进度，见 RingProgressView 类注释）。
+        // 进度环：优先用协议下发的真实协商进度（0–100）；协议没给时回退到阶段映射。
+        val pct = state.progress?.toFloat() ?: progressPercentFor(state.phase)
+        android.util.Log.i("Carpp/UI", "ring pct=$pct phase=${state.phase} real=${state.progress}")
         view.findViewById<RingProgressView>(R.id.ring_progress)
-            ?.setProgress(progressPercentFor(state.phase))
+            ?.setProgress(pct)
 
-        // 车机侧的自定义名字，SDK 会在配对阶段发下来。
-        view.findViewById<TextView>(R.id.device_name)?.let { label ->
-            val name = state.carDeviceName
-            if (name.isNullOrBlank()) {
-                label.visibility = View.GONE
-            } else {
-                label.text = name
-                label.visibility = View.VISIBLE
-            }
-        }
+        // 顶部品牌已是 Car++，车机名不再单独成行显示（避免与品牌重复出现两个 Car++）。
+        view.findViewById<TextView>(R.id.device_name)?.visibility = View.GONE
 
         // Null-tolerant lookups: the layout has an orientation-specific variant, and a missing view
         // must never take the standby screen down while it is the only thing the driver can see.
@@ -125,6 +127,24 @@ class HomeFragment : Fragment() {
             if (connected) View.GONE else View.VISIBLE
     }
 
+    /**
+     * 降级态渲染：协议实现没起来（典型：缺 icar-sdk.dex）时，首页只说一句状态，
+     * 不铺说明段落 —— 首页的字数按 ICCOA 车机端的口径收紧。
+     *
+     * 刻意不走 [render]：没有真实阶段可画，环停在 0%，配对码块与刷新按钮都收起
+     * （刷新对一个不存在的链路做不了任何事，留着只会骗人）。
+     */
+    private fun renderDegraded() {
+        val view = view ?: return
+        view.findViewById<TextView>(R.id.connection_status)?.text =
+            getString(R.string.da_unavailable)
+        view.findViewById<View>(R.id.pairing_code_block)?.visibility = View.GONE
+        view.findViewById<View>(R.id.refresh_pin_button)?.visibility = View.GONE
+        view.findViewById<View>(R.id.wifi_button)?.visibility = View.GONE
+        view.findViewById<TextView>(R.id.device_name)?.visibility = View.GONE
+        view.findViewById<RingProgressView>(R.id.ring_progress)?.setProgress(0f, animate = false)
+    }
+
     private fun openProjection() {
         // Mark as opened so MainActivity's auto-open observer doesn't immediately re-launch the
         // projection the moment this fragment's host resumes.
@@ -145,10 +165,17 @@ class HomeFragment : Fragment() {
          * 已连=满。数字表达的是「走到哪一段」，不是协议承诺的剩余时间 ——
          * 与其显示一个编造的倒计时，不如显示一个诚映射的进度。
          */
-        fun progressPercentFor(phase: LinkPhase): Float = when (phase) {
+        /**
+         * 协议没给真实进度时的兜底映射。
+         * 关键：等待连接（Advertising）和出配对码（Pairing）都从 **0%** 起步，
+         * 不让环在阶段切换时跳跃；配对码出现后由 ICCOA 的 `onConnectingProgress`
+         * 真实进度（0→100）接管 —— 手机端输入配对码后进度平滑涨到 100%，
+         * 协议报 Connected 即出画面。
+         */
+        internal fun progressPercentFor(phase: LinkPhase): Float = when (phase) {
             LinkPhase.Idle -> 0f
-            LinkPhase.Advertising -> 33f
-            LinkPhase.Pairing -> 66f
+            LinkPhase.Advertising -> 0f
+            LinkPhase.Pairing -> 0f
             LinkPhase.Connected -> 100f
         }
 

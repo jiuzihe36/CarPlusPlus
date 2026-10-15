@@ -4,6 +4,14 @@ import com.carpp.sdk.sdk.LinkPhase
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+/**
+ * 进度环的「阶段兜底映射」。
+ *
+ * 真实进度由 ICCOA 的 `onConnectingProgress` 下发（0→100），这里的阶段映射只在协议没给数字时兜底。
+ * 用户口径是：**出配对码时 0%，手机端输入配对码后从 0 一路平滑涨到 100%，到 100% 就出画面**。
+ * 因此「等待连接」和「配对中」都必须停在 0%，绝不能在阶段切换时先跳一段 —— 早先的
+ * 0 / 33 / 66 / 100 会在出码瞬间把环从 33% 跳到 66%，看起来像卡住又像倒退。
+ */
 class HomeLinkProgressTest {
 
     @Test
@@ -12,13 +20,13 @@ class HomeLinkProgressTest {
     }
 
     @Test
-    fun `advertising sits on the first third`() {
-        assertEquals(33f, HomeFragment.progressPercentFor(LinkPhase.Advertising))
+    fun `advertising stays empty until the phone pairs`() {
+        assertEquals(0f, HomeFragment.progressPercentFor(LinkPhase.Advertising))
     }
 
     @Test
-    fun `pairing sits on the second third`() {
-        assertEquals(66f, HomeFragment.progressPercentFor(LinkPhase.Pairing))
+    fun `pairing starts at zero and is driven by the real progress`() {
+        assertEquals(0f, HomeFragment.progressPercentFor(LinkPhase.Pairing))
     }
 
     @Test
@@ -27,16 +35,19 @@ class HomeLinkProgressTest {
     }
 
     @Test
-    fun `the four phases are strictly ordered and finish at 100`() {
-        val order = listOf(
-            LinkPhase.Idle, LinkPhase.Advertising, LinkPhase.Pairing, LinkPhase.Connected,
-        ).map { HomeFragment.progressPercentFor(it) }
+    fun `the ring never jumps on a phase change before the session is up`() {
+        val beforeConnected = listOf(LinkPhase.Idle, LinkPhase.Advertising, LinkPhase.Pairing)
+            .map { HomeFragment.progressPercentFor(it) }
 
-        assertEquals(4, order.size)
-        assertEquals(0f, order.first())
-        assertEquals(100f, order.last())
-        order.zipWithNext().forEach { (a, b) ->
-            assertEquals("阶段必须单调推进，否则环会倒退", true, a < b)
+        // 连上之前一律 0%：阶段推进本身不许把环往前推，否则「输入配对码」那一刻会跳。
+        assertEquals(listOf(0f, 0f, 0f), beforeConnected)
+    }
+
+    @Test
+    fun `every phase stays inside the ring's range`() {
+        LinkPhase.values().forEach { phase ->
+            val pct = HomeFragment.progressPercentFor(phase)
+            assertEquals("$phase 越界: $pct", true, pct in 0f..100f)
         }
     }
 

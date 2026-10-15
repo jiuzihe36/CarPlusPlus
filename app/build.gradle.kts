@@ -1,13 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions
 import java.util.Properties
 import java.io.FileInputStream
-// 顶层 `java` 被 Gradle 扩展名遮蔽：java.util.zip / java.io 的全限定名无法解析，
-// 必须显式 import 这些 JDK 类后用短名（否则末尾的 dex 注入任务编译不过）。
-import java.util.zip.ZipFile
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
-import java.io.FileOutputStream
-import java.io.BufferedOutputStream
 import java.io.File
 
 plugins {
@@ -17,8 +10,11 @@ plugins {
 
 // =====================================================================
 // :app 现在是薄壳：源码、资源、JNI 全部在 :carpp-sdk，协议实现在 :sdk-iccoa。
-// 这里只保留打包相关的东西 —— 应用 ID、渠道、签名、输出命名，
-// 以及把 ICCOA SDK dex 注入 APK 的那一步（它需要最终 APK，只能在壳里做）。
+// 这里只保留打包相关的东西 —— 应用 ID、渠道、签名、输出命名。
+//
+// ICCOA CarLink SDK 以标准 jar 依赖（libs/icar-sdk.jar）接入：由 Gradle/AGP
+// 正常完成 d8 → dex → 对齐 → 签名，不再做任何 dex 注入/重签的后处理。
+// 这是「原生」集成方式 —— 出 bug 时栈帧、映射、增量编译都正常可用。
 // =====================================================================
 android {
     compileSdk = 36
@@ -174,7 +170,7 @@ androidComponents {
         val shortcuts = file("src/debug/res/xml/shortcuts.xml")
         if (!shortcuts.exists()) return@onVariants
         val expected = variant.applicationId.get()
-        val mismatched = Regex("android:targetPackage=\"([^\"]+)\"")
+        val mismatched = Regex("android:targetPackage=\\\"([^\\\"]+)\\\"")
             .findAll(shortcuts.readText())
             .map { it.groupValues[1] }
             .filter { it != expected }
@@ -199,163 +195,10 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.9.0")
     // Multidex
     implementation("androidx.multidex:multidex:2.0.1")
-}
 
-// =====================================================================
-// ICCOA CarLink SDK dex 注入 + 重签（让 assemble*Debug / assemble*Release 直接产出完整可装 APK）
-//
-//   AGP 不消费 .dex 文件依赖（implementation/runtimeOnly files("*.dex") 都不会进 APK），
-//   所以打包完成后把 SDK dex 作为下一个 classesN.dex 追加进 APK，再 zipalign + 重签。
-//   debug 变体沿用默认 debug keystore；release 变体用 key.properties 里的发布密钥
-//   （改 zip 会作废 AGP 的签名，所以两者都必须重签）。
-//   纯 java.util.zip 实现，不依赖外部脚本。
-// =====================================================================
-val sdkDex = file("libs/icar-sdk.dex")
-val sdkDexBytes: ByteArray = if (sdkDex.exists()) sdkDex.readBytes() else ByteArray(0)
-val iccoaSdkHome = (System.getenv("ANDROID_HOME") ?: System.getenv("ANDROID_SDK_ROOT"))
-    ?.let { file(it) }
-    ?: file("C:/Users/Administrator/AppData/Local/Android/Sdk")
-val iccoaBuildToolsDir = iccoaSdkHome.resolve("build-tools").listFiles()
-    ?.filter { it.isDirectory }
-    ?.filter { it.resolve("zipalign").exists() && it.resolve("lib/apksigner.jar").exists() }
-    ?.maxByOrNull { it.name }
-    ?: iccoaSdkHome.resolve("build-tools/34.0.0")
-val iccoaZipalign = iccoaBuildToolsDir.resolve("zipalign")
-val iccoaApksignerJar = iccoaBuildToolsDir.resolve("lib/apksigner.jar")
-val iccoaDebugKeystore = file(System.getProperty("user.home")).resolve(".android/debug.keystore")
-
-val injectIccoaDex = tasks.register("injectIccoaDex") {
-    group = "build"
-    description = "Appends the ICCOA CarLink SDK dex into the APKs and re-signs them"
-    onlyIf { sdkDex.exists() }
-    doLast {
-        val apkRoot = layout.buildDirectory.dir("outputs/apk").get().asFile
-        val apks = (apkRoot.listFiles() ?: emptyArray())
-            .filter { it.isDirectory }
-            // debug *and* release: a release APK needs the SDK dex just as much, and
-            // modifying the zip invalidates whatever AGP signed, so it is re-signed below.
-            .flatMap { flavor -> (flavor.listFiles() ?: emptyArray()).filter {
-                it.isDirectory && (it.name == "debug" || it.name == "release")
-            } }
-            .flatMap { buildTypeDir -> (buildTypeDir.listFiles() ?: emptyArray()).filter {
-                it.isFile && it.name.endsWith(".apk") &&
-                    !it.name.endsWith("-injected.apk") && !it.name.endsWith("-aligned.apk")
-            } }
-        require(apks.isNotEmpty()) { "未找到 APK：先运行 assembleGithubDebug / assembleGithubRelease" }
-
-        // Signing material for the release variant is resolved here (rather than reusing
-        // android.signingConfigs) so a missing/misconfigured key.properties degrades into a
-        // loud warning instead of an exec() crash mid-build.
-        val releaseKeyProps = rootProject.file("key.properties").takeIf { it.exists() }?.let {
-            Properties().apply { FileInputStream(it).use { s -> load(s) } }
-        }
-        val releaseKeystore = releaseKeyProps?.getProperty("storeFile")?.let { declared ->
-            listOf(rootProject.file(declared), file(declared)).firstOrNull { it.exists() }
-        }
-
-        apks.forEach { apk ->
-            val isRelease = apk.parentFile?.name == "release"
-            val base = apk.name.removeSuffix(".apk")
-            val tmpInjected = File(apk.parentFile, "$base-injected.apk")
-            val tmpAligned = File(apk.parentFile, "$base-aligned.apk")
-
-            // --- 1. 追加 classesN.dex（保留原压缩方式 + 剥离 META-INF 签名）---
-            val zin = ZipFile(apk)
-            val entries = zin.entries().toList()
-
-            // ★ 幂等保护：这是个 finalizer，每次 build 都会跑；若 APK 里已有历史注入副本
-            //   （内容与 SDK dex 逐字节相同的 classesN.dex），必须先剔除，否则会再追加一份，
-            //   APK 每 build 膨胀一次（曾出现 classes5 + classes6 两份 SDK）。
-            val staleCopies = entries.filter { e ->
-                e.name.matches(Regex("classes\\d+\\.dex")) &&
-                    e.size == sdkDexBytes.size.toLong() &&
-                    zin.getInputStream(e).readBytes().contentEquals(sdkDexBytes)
-            }.map { it.name }.toSet()
-            if (staleCopies.isNotEmpty()) {
-                logger.lifecycle(">>> [${apk.name}] 移除历史注入副本: ${staleCopies.joinToString(", ")}")
-            }
-            val kept = entries.filter { it.name !in staleCopies }
-            val existing = kept.map { it.name }.toSet()
-            var n = 2
-            while (existing.contains("classes$n.dex")) n++
-            val newName = "classes$n.dex"
-            BufferedOutputStream(FileOutputStream(tmpInjected)).use { bos ->
-                val zout = ZipOutputStream(bos)
-                for (e in kept) {
-                    val fn = e.name
-                    if (fn.startsWith("META-INF/") &&
-                        (fn.endsWith(".RSA") || fn.endsWith(".SF") || fn.endsWith(".MF") ||
-                         fn.endsWith(".DSA") || fn.endsWith(".EC"))) continue
-                    val data = zin.getInputStream(e).readBytes()
-                    val ne = ZipEntry(fn)
-                    ne.method = e.method
-                    ne.size = e.size
-                    ne.crc = e.crc
-                    ne.time = e.time
-                    // STORED 必须 compressedSize == size；DEFLATED 不能预设（重压后大小会变）。
-                    if (e.method == ZipEntry.STORED) ne.compressedSize = e.size
-                    zout.putNextEntry(ne)
-                    zout.write(data)
-                }
-                val de = ZipEntry(newName)
-                de.method = ZipEntry.DEFLATED
-                zout.putNextEntry(de)
-                zout.write(sdkDexBytes)
-                zout.closeEntry()
-                zout.close()
-            }
-            zin.close()
-            logger.lifecycle(">>> [${apk.name}] 已附加 $newName (${sdkDex.length()} B)")
-
-            // --- 2. zipalign ---
-            exec { commandLine(iccoaZipalign.absolutePath, "-p", "-f", "4", tmpInjected.absolutePath, tmpAligned.absolutePath) }
-
-            // --- 3. 重签（release 用发布密钥，其余沿用默认 debug keystore）---
-            require(iccoaApksignerJar.exists()) { "找不到 apksigner.jar：$iccoaApksignerJar" }
-            val signArgs = if (isRelease) {
-                if (releaseKeystore != null && releaseKeyProps != null) {
-                    listOf(
-                        "--ks", releaseKeystore.absolutePath,
-                        "--ks-key-alias", releaseKeyProps.getProperty("keyAlias"),
-                        "--ks-pass", "pass:" + releaseKeyProps.getProperty("storePassword"),
-                        "--key-pass", "pass:" + releaseKeyProps.getProperty("keyPassword")
-                    )
-                } else {
-                    logger.warn(">>> 未找到 key.properties/carpp-release-key.jks，${apk.name} 未重签（安装可能失败）")
-                    null
-                }
-            } else if (iccoaDebugKeystore.exists()) {
-                listOf(
-                    "--ks", iccoaDebugKeystore.absolutePath,
-                    "--ks-key-alias", "androiddebugkey",
-                    "--ks-pass", "pass:android",
-                    "--key-pass", "pass:android"
-                )
-            } else {
-                logger.warn(">>> 未找到 debug.keystore，${apk.name} 未重签（安装可能失败）")
-                null
-            }
-            if (signArgs != null) {
-                exec {
-                    commandLine(
-                        listOf("java", "-jar", iccoaApksignerJar.absolutePath, "sign") +
-                            signArgs + listOf("--out", apk.absolutePath, tmpAligned.absolutePath)
-                    )
-                }
-            }
-            tmpInjected.delete()
-            tmpAligned.delete()
-            logger.lifecycle(">>> Car++ APK 已注入 ICCOA SDK 并重签：${apk.absolutePath}")
-        }
-    }
-}
-
-// AGP 在配置后期才生成变体任务，tasks.named 不等待 → 放进 afterEvaluate 再挂 finalizedBy。
-afterEvaluate {
-    tasks.matching {
-        it.name in setOf(
-            "assembleGithubDebug", "assemblePlaystoreDebug",
-            "assembleGithubRelease", "assemblePlaystoreRelease"
-        )
-    }.configureEach { finalizedBy(injectIccoaDex) }
+    // ★ ICCOA CarLink SDK（闭源，约 5.3 MB，仓库不分发）：作为标准 jar 依赖接入，
+    //   AGP 会用 d8 正常编译进 APK（multidex 自动处理）。
+    //   编译期签名由 :sdk-iccoa 的 stubs/icar-sdk-stubs.jar 提供。
+    //   详见 app/libs/README.md。
+    implementation(files("libs/icar-sdk.jar"))
 }

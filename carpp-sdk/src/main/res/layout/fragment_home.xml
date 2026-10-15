@@ -1,15 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Car++ 待机首页 · ICCOA 2.0 连接页气质
+  Car++ 待机首页 · 横屏
 
-  仍是按钮less 设计（像 HiCar / Honor CarLink）：车机一直在广播，没什么要用户去「开始」的。
-  配对码在手机开始配对的那一刻自己出现，被消费或失效后自己消失。
-
-  唯一保留的两个按钮都是上下文相关的：
-    · 「刷新配对码」—— 未连接时出现（手机上误关弹窗后的手动重试）
-    · 「打开投屏」  —— 已连接时出现（否则从投屏页返回会走投不回去）
-  右侧的环形进度 = 连接阶段映射出的 0/33/66/100%，不是协议真给的百分比，
-  见 RingProgressView 的类注释。
+  与竖屏同一套四要素（连接码 / 状态 / 进度 / 入口），仅把进度环放到右侧：
+  左侧看码，右侧看进度。没有说明段落、没有法务长文。
 -->
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -20,12 +14,14 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:padding="32dp">
+        android:padding="28dp">
 
-        <!-- Header: brand + return to the car's own home screen -->
+        <!-- 顶栏 -->
+        <!-- 品牌区：长按「Car++」弹出设置（见 HomeFragment）。 -->
         <LinearLayout
+            android:id="@+id/brand_area"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical">
@@ -39,228 +35,135 @@
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="14dp"
+                android:layout_marginStart="12dp"
                 android:layout_weight="1"
                 android:fontFamily="sans-serif-medium"
                 android:text="@string/da_brand"
                 android:textColor="@color/da_text"
-                android:textSize="26sp" />
+                android:textSize="22sp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/exit_button"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="56dp"
+                android:layout_height="48dp"
                 android:text="@string/da_close"
                 android:textColor="@color/da_muted" />
         </LinearLayout>
 
+        <!-- 主体：左码 / 右环 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingTop="24dp"
-            android:paddingBottom="16dp">
+            android:orientation="horizontal">
 
-            <!-- Left: 状态 + 自动出现的配对码 -->
+            <!-- 左：状态 + 连接码 + 入口 -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1.7"
+                android:layout_weight="1"
+                android:gravity="center_vertical"
                 android:orientation="vertical">
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:id="@+id/connection_status"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:letterSpacing="0.16"
-                    android:text="@string/da_tagline"
-                    android:textColor="@color/da_accent"
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="@string/da_headline"
+                    android:accessibilityLiveRegion="polite"
+                    android:gravity="center"
+                    android:text="@string/da_ready"
                     android:textColor="@color/da_text"
-                    android:textSize="34sp" />
+                    android:textSize="30sp" />
 
                 <TextView
-                    android:layout_width="match_parent"
+                    android:id="@+id/device_name"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:lineSpacingExtra="6dp"
-                    android:text="@string/da_description"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:letterSpacing="0.12"
                     android:textColor="@color/da_muted"
-                    android:textSize="18sp" />
+                    android:textSize="16sp"
+                    android:visibility="gone" />
 
                 <LinearLayout
-                    android:layout_width="match_parent"
+                    android:id="@+id/pairing_code_block"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="24dp"
-                    android:background="@drawable/da_card"
+                    android:layout_marginTop="26dp"
                     android:orientation="vertical"
-                    android:padding="24dp">
+                    android:visibility="gone">
 
                     <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:letterSpacing="0.1"
-                        android:text="@string/da_wireless"
-                        android:textColor="@color/da_accent"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/connection_status"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:accessibilityLiveRegion="polite"
-                        android:text="@string/da_ready"
-                        android:textColor="@color/da_text"
-                        android:textSize="24sp" />
-
-                    <!-- 自动配对码：仅在 SDK 发过码时出现。
-                         整块切换而不是只切文字，卡片才不会在连上时跳一下。 -->
-                    <LinearLayout
-                        android:id="@+id/pairing_code_block"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="14dp"
-                        android:orientation="vertical"
-                        android:visibility="gone">
-
-                        <TextView
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:letterSpacing="0.1"
-                            android:text="@string/da_pin_label"
-                            android:textColor="@color/da_accent"
-                            android:textSize="13sp" />
-
-                        <!-- 6 位配对码：按 ICCOA 惯例分两组显示，行车中扫一眼更容易读 -->
-                        <TextView
-                            android:id="@+id/pairing_code"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:fontFamily="monospace"
-                            android:letterSpacing="0.18"
-                            android:textColor="@color/da_text"
-                            android:textSize="52sp"
-                            android:textStyle="bold" />
-                    </LinearLayout>
-
-                    <!-- 手动重播配对码。链路每 30 秒自己重播一次，但手机上被关掉的弹窗
-                         不会自己回来，让司机等满一个周期体验很差。已连接后隐藏。 -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/refresh_pin_button"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         android:layout_width="wrap_content"
-                        android:layout_height="56dp"
-                        android:layout_marginTop="16dp"
-                        android:minWidth="0dp"
-                        android:text="@string/da_refresh_pin"
-                        android:textAllCaps="false"
-                        android:textColor="@color/da_accent"
-                        android:textSize="15sp"
-                        app:cornerRadius="16dp" />
-
-                    <!-- 上下文按钮：只在已连接时出现，否则从投屏页返回会走投不回去。 -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/wifi_button"
-                        android:layout_width="match_parent"
-                        android:layout_height="68dp"
-                        android:layout_marginTop="14dp"
-                        android:gravity="center"
-                        android:text="@string/da_open"
-                        android:textAllCaps="false"
-                        android:textColor="@color/da_background"
-                        android:textSize="18sp"
-                        android:visibility="gone"
-                        app:backgroundTint="@color/da_accent"
-                        app:cornerRadius="20dp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:lineSpacingExtra="4dp"
-                        android:text="@string/da_hint"
-                        android:textColor="@color/da_muted"
+                        android:gravity="center"
+                        android:letterSpacing="0.24"
+                        android:text="@string/da_pin_label"
+                        android:textColor="@color/da_accent"
                         android:textSize="15sp" />
+
+                    <!-- 6 位必须一行放下：字号按最窄车机横屏左栏算，配 letterSpacing
+                         也不能超过 400dp 的可用宽；折成两行要司机自己拼读就失去意义了。 -->
+                    <TextView
+                        android:id="@+id/pairing_code"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="monospace"
+                        android:gravity="center"
+                        android:includeFontPadding="false"
+                        android:letterSpacing="0.06"
+                        android:maxLines="1"
+                        android:singleLine="true"
+                        android:textColor="@color/da_text"
+                        android:textSize="52sp"
+                        android:textStyle="bold" />
                 </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/refresh_pin_button"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="260dp"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="30dp"
+                    android:text="@string/da_refresh_pin"
+                    android:textAllCaps="false"
+                    android:textColor="@color/da_accent"
+                    android:textSize="16sp"
+                    app:cornerRadius="18dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/wifi_button"
+                    android:layout_width="260dp"
+                    android:layout_height="58dp"
+                    android:layout_marginTop="10dp"
+                    android:gravity="center"
+                    android:text="@string/da_open"
+                    android:textAllCaps="false"
+                    android:textColor="@color/da_background"
+                    android:textSize="16sp"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/da_accent"
+                    app:cornerRadius="18dp" />
             </LinearLayout>
 
-            <!-- Right: 连接进度环 + 设备名 + 设置 -->
+            <!-- 右：连接进度环 -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="40dp"
                 android:layout_weight="1"
-                android:gravity="center_horizontal"
+                android:gravity="center"
                 android:orientation="vertical">
 
                 <com.carpp.sdk.view.RingProgressView
                     android:id="@+id/ring_progress"
-                    android:layout_width="240dp"
-                    android:layout_height="240dp"
+                    android:layout_width="260dp"
+                    android:layout_height="260dp"
                     android:importantForAccessibility="no" />
-
-                <TextView
-                    android:id="@+id/device_name"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:gravity="center"
-                    android:letterSpacing="0.12"
-                    android:text="@string/da_tagline"
-                    android:textColor="@color/da_muted"
-                    android:textSize="14sp"
-                    android:visibility="gone" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/settings_button"
-                    android:layout_width="match_parent"
-                    android:layout_height="68dp"
-                    android:layout_marginTop="24dp"
-                    android:gravity="center"
-                    android:text="@string/da_settings"
-                    android:textAllCaps="false"
-                    android:textColor="@color/da_text"
-                    android:textSize="18sp"
-                    app:backgroundTint="@color/da_surface"
-                    app:cornerRadius="20dp"
-                    app:icon="@drawable/ic_settings_white"
-                    app:iconGravity="textStart"
-                    app:iconPadding="12dp"
-                    app:iconTint="@color/da_accent" />
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:gravity="center"
-                    android:text="@string/da_settings_hint"
-                    android:textColor="@color/da_muted"
-                    android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
-
-        <!-- 法务脚注：Car++ 是独立项目，不是比亚迪 / ICCOA / 小米的产品。 -->
-        <TextView
-            android:id="@+id/legal_footer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            android:alpha="0.7"
-            android:lineSpacingExtra="3dp"
-            android:text="@string/da_legal"
-            android:textColor="@color/da_muted"
-            android:textSize="12sp" />
     </LinearLayout>
 </ScrollView>

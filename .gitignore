@@ -4,6 +4,15 @@
 
 # Files for the Dalvik VM
 *.dex
+*.dex.bak
+
+# 闭源 ICCOA CarLink SDK：本地放置，仓库不分发（见 app/libs/README.md）
+libs/*.jar
+app/libs/*.jar
+
+# 本地调试截图与参考图
+shot_*.png
+ref/
 
 # Java class files
 *.class

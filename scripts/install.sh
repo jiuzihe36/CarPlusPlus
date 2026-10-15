@@ -5,8 +5,8 @@ set -euo pipefail
 CAR="${1:?Usage: install.sh CAR_IP:5555 PATH_TO_APK}"
 APK="${2:?Provide an APK path}"
 ADB="${ADB:-adb}"
-# The release build. A debug build installs as com.miauto.app.debug — override with PKG=...
-PKG="${PKG:-com.miauto.app}"
+# The release build. A debug build installs as com.carpp.app.debug — override with PKG=...
+PKG="${PKG:-com.carpp.app}"
 [[ -f "$APK" ]] || { echo "APK not found: $APK" >&2; exit 1; }
 "$ADB" connect "$CAR"
 adb_car() { "$ADB" -s "$CAR" "$@"; }

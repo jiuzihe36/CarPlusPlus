@@ -2,6 +2,7 @@ package com.carpp.sdk.sdk
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.view.Surface
 import kotlinx.coroutines.flow.StateFlow
 
@@ -36,6 +37,14 @@ data class LinkState(
     val carDeviceName: String? = null,
     /** 协议层最后一条原始日志，供诊断页展示。 */
     val lastLog: String? = null,
+    /**
+     * 协议下发的**真实**连接进度（0–100），[LinkPhase.Pairing] 协商阶段才有。
+     * 为 `null` 表示协议没给真实进度，调用方应回退到 [LinkPhase] 的阶段映射。
+     *
+     * ICCOA CarLink 的 `onConnectingProgress` 是渐进的（手机端 Wi-Fi 直连 / 热点协商
+     * 推进时持续回调），比「四个阶段各 33%」更能反映真实进展；进度环优先用它。
+     */
+    val progress: Int? = null,
 )
 
 /** 手机推来的导航信息；字段取 ICCOA CarLink 上报的那一组，其它协议映射过来即可。 */
@@ -117,26 +126,70 @@ interface PhoneLinkProvider {
  */
 object PhoneLinkRegistry {
 
+    private const val TAG = "PhoneLinkRegistry"
+
     @Volatile
     private var provider: PhoneLinkProvider? = null
 
     @Volatile
     private var link: PhoneLink? = null
 
+    /**
+     * 本 provider 已经创建失败过。失败会记账，避免每次 render 都重新砸一次同样的异常栈
+     * （首页、观察者、投影页每次都会走这个入口）。换 provider 时在 [install] 里清掉。
+     */
+    @Volatile
+    private var providerFailed = false
+
     fun install(value: PhoneLinkProvider) {
         provider = value
         link = null
+        providerFailed = false
     }
 
     fun provider(): PhoneLinkProvider? = provider
 
-    /** 惰性创建并返回链路实例；未注册实现时返回 null（SDK 各消费点一律判空跳过）。 */
+    /**
+     * 惰性创建并返回链路实例；未注册实现、未给 Context、或实现本身起不来时，一律返回 null，
+     * SDK 各消费点按 `?: return` 跳过 —— 界面照常渲染，只是连不上手机。
+     *
+     * ## 为什么必须吞掉这些异常
+     * 仓库不含闭源 `icar-sdk.dex`，运行期 `com.ucar.vehiclesdk.*` 根本不存在，
+     * `IcocaBridge` 构造时抛的是 `NoClassDefFoundError`（`Error`，不是 `Exception`）。
+     * 不兜底的话它会一路穿到 `MainActivity.onCreate` 直接闪退，
+     * 而消费点那些判空一个都轮不到。
+     *
+     * 吞的范围刻意收窄：`Exception` + `LinkageError`（找不到类、静态初始化失败、缺 native 库）。
+     * `VirtualMachineError`（OOM / StackOverflow）照旧让它炸 —— 那是程序该死的时候。
+     */
     fun link(context: Context?): PhoneLink? {
         link?.let { return it }
+        if (providerFailed) return null
         val p = provider ?: return null
         val ctx = context ?: return null
         return synchronized(this) {
-            link ?: p.create(ctx.applicationContext).also { link = it }
+            link ?: createOrNull(p, ctx.applicationContext)
         }
+    }
+
+    private fun createOrNull(p: PhoneLinkProvider, ctx: Context): PhoneLink? =
+        try {
+            p.create(ctx).also { link = it }
+        } catch (e: Exception) {
+            reportFailure(p, e)
+            null
+        } catch (e: LinkageError) {
+            reportFailure(p, e)
+            null
+        }
+
+    private fun reportFailure(p: PhoneLinkProvider, e: Throwable) {
+        providerFailed = true
+        // 只记一行：缺 dex 是预期形态，不值得每个界面各刷一遍堆栈。
+        Log.w(
+            TAG,
+            "PhoneLink provider '${p.id}' failed to start; running degraded " +
+                "(no phone connection, UI unaffected): ${e.javaClass.simpleName}: ${e.message}",
+        )
     }
 }

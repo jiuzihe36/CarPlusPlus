@@ -23,7 +23,7 @@ Car++ 以 [早期内部版本](https://github.com//早期内部版本-Pro) 为�
 | 设置体系 | 早期内部版本 | `main/SettingsActivity.kt` / `SettingsFragment.kt`：常规 · 无线连接 · 深色模式 · 自动化 · 导航 · 图形 · 视频 · 输入 · 音频 · 备份 · 重置 · 调试 · 信息 |
 | BYD 仪表 + HUD 输出 | 早期内部版本 | `hud/` + `cluster/`；`BydNavigationOutputs.available()` 就是「HUD 未识别则不显示开关」的门控 |
 | 投影渲染 | 早期内部版本 | `view/`（SurfaceView / TextureView / GLES）+ `aap/AapProjectionActivity` |
-| 手机协议 | **ICCOA（新）** | `connection/IcocaBridge.kt` + `com.carpp.app.IccoaManager` + `app/libs/icar-sdk.dex` |
+| 手机协议 | **ICCOA（新）** | `connection/IcocaBridge.kt` + `com.carpp.app.IccoaManager` + `app/libs/icar-sdk.jar` |
 
 > 内部 Java 包名仍为 `com.andrerinas.openheadunit`（沿用基座，避免 275 个源文件 + JNI/proto/AIDL
 > 的批量改名风险）；**对外的 `applicationId` 是 `com.carpp.app`**，与 早期内部版本
@@ -31,8 +31,8 @@ Car++ 以 [早期内部版本](https://github.com//早期内部版本-Pro) 为�
 
 ## 3. 移植 SDK 时必须一起搬的三样东西
 
-只把 SDK 的 dex 放进工程**不等于** SDK 可用。真机上「手机完全扫不到车机、界面无配对码、
-点任何按钮都无反应」的根因，就是**只搬了 dex**。dex 只等于 SDK 的**类**，另外三份必须一起搬：
+只把 SDK 的字节码放进工程**不等于** SDK 可用。真机上「手机完全扫不到车机、界面无配对码、
+点任何按钮都无反应」的根因，就是**只搬了字节码**。字节码只等于 SDK 的**类**，另外三份必须一起搬：
 
 | 组成 | 漏掉时的症状 | Car++ 的做法 |
 |---|---|---|
@@ -74,10 +74,62 @@ Car++ 只把 `AapService` 当前台保活，并用 `BuildConfig.ICCOA_ONLY = tru
 |---|---|
 | **30 秒看门狗** | `AUTO_REFRESH_INTERVAL_MS = 30_000`：到期若仍未连接 → 重播 → 再调度下一轮 |
 | **★ 重播 = 停-启** | `stopAdvertise()` → `startAdvertise()`。**对一条已在广播中的链路重复调用 `startAdvertise()` 会被 SDK 直接忽略**，广播帧不变，手机端什么也不会发生 —— 这是最容易被漏掉的一步 |
-| **避让** | `sessionActive`（`newState 2/3` 已连）或 `castStarted`（画面已投出）时跳过，绝不打断进行中的会话；`newState 1`（CONNECTING）**刻意不算**，好让协商卡死时能被重播救回来 |
+| **避让** | `sessionActive`（已连：状态 2/4/6/7）或 `castStarted`（画面已投出）时跳过，绝不打断进行中的会话；中间态**刻意不算**已连，好让协商卡死时能被重播救回来 |
 | **计时重置** | `onPinCode` 时重置计时，保证用户拿到完整的 30 秒去确认 |
 | **手动入口** | 首页「刷新配对码」按钮 → `IcocaBridge.refreshPairing()`，与看门狗同一条路径，只是不等 30 秒；仅未连接时可见 |
 
 顺带修掉一个隐患：`tryStartCast()` 原先在无 Surface（待机页）时会**每 500 ms 无限自我重试**，
 待机页常驻即等于永不停止的定时器。现已加 `CAST_RETRY_MAX = 20`（≈10 秒）预算，
 Surface 稍后就绪的情形由 `setSurface()` 兜底触发。
+
+---
+
+## 6. 连接状态回调的真实签名（踩过的坑）
+
+SDK 的接口是：
+
+```java
+void onConnectStateChanged(String deviceId, int state, int extra);
+```
+
+**第 2 个参数才是状态，第 3 个是附加码**（连接失败时是错误码，其余情况恒为 `-1`）。
+`com.ucar.vehiclesdk.UCarConnectState` 里的状态常量：
+
+| state | 含义 | 对应界面 |
+|---|---|---|
+| 1 | `UCAR_DEVICE_DISCONNECT` | 未连接 |
+| 2 | `UCAR_DEVICE_CONNECTED` | 已连接 |
+| 3 | `UCAR_DEVICE_CONNECT_FAILED` | 失败（`extra` 是错误码） |
+| 4 | `UCAR_DEVICE_CAST_CONNECTED` | 投屏已建立 |
+| 5 | `UCAR_DEVICE_CAST_DISCONNECTED` | 投屏断开 |
+| 6 / 7 | `GO_TO_HOME` / `BACK_TO_FOREGROUND` | 前后台切换，**会话仍在** |
+
+错误码：`10001` init 失败 / `10003` 无线连接失败 / `10005` 启动投屏失败 /
+`10006` 超时 / `10008` 内部失败（典型是热点建不起来）。
+
+**曾把签名误读成 `(deviceId, oldState, newState)`**，于是每次「连接成功」的那次回调
+（`state=2, extra=-1`）被当成新状态 `-1`，落进 `else` 分支回落成「广播中」——
+表现是**底层已经连上并在传视频，界面却永远停在「等待手机连接」**，投屏界面也不弹。
+排查时先看 `onConnectStateChanged` 的原值，别信自己的映射。
+
+## 7. 两条连接路线：Wi-Fi Direct 与车载热点
+
+数据通道有两条路，由**设置里的「连接方式」**（`Settings.nativeApTransport`，
+pref key `native-ap-transport`）决定，`IccoaManager.buildConfig()` 读它：
+
+| 设置 | `UCarConfig` | 要求 |
+|---|---|---|
+| Wi-Fi Direct（0，默认） | `setSupportP2P(true)` + `setSupportSoftAP(false)` | 普通应用权限即可。SDK 自己 `createGroup` 组网 |
+| 车载热点（1） | `setSupportP2P(false)` + `setSupportSoftAP(true)` | 需要 `TETHER_PRIVILEGED` —— **signature\|privileged 权限，只有系统应用拿得到** |
+
+- 热点路线在**非系统安装**下必然失败：`setSoftApConfiguration()` 抛
+  `SecurityException: App not allowed to read or update stored WiFi Ap config`，
+  `pm grant` 也补不上（该权限不可动态授予）→ 热点建不起来 → 手机连不进 →
+  `errorCode 10008` → 蓝牙被手机侧断开。要用这条路线，必须把 APK 装进 `/system/priv-app`。
+- 两条都开着时 SDK 会**优先去建热点**，于是在非系统安装上直接撞死；这也是
+  「手机明明显示车机名字、就是连不上」的常见原因。
+- 手机端协商时会带自己的期望（`type:1002` = 期望 AP 连接）。若车机侧不支持，
+  SDK 会打日志 `phone expect ap connection, but car only supports p2p connection, use p2p instead`
+  并自动改走 P2P —— 所以**只开 P2P 是安全的兜底**。
+- `UCarConfig` 是 **init-once**：改设置后要重启 App 才生效。
+
