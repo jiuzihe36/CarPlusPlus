@@ -165,3 +165,61 @@ pref key `native-ap-transport`）决定，`IccoaManager.buildConfig()` 读它：
   之间来回切，且切回来时路名标签回到原位（可逆）—— 说明是车机端的触摸在驱动手机，
   而不是画面自己在变。
 
+## 9. SDK 2.0.24（官方完整版）：jar 怎么抽、缺的厂商类怎么补
+
+Car++ 现在用的 `app/libs/icar-sdk.jar` 是从**官方 ICCOA Carlink 车机端 App**
+（`com.syncore.carlink` 2.0.24）里抽出来的，抽取与验证过程见
+`~/项目/车机/iccoa-official-2.0.24/sdk-bundle/README.md`。
+
+### 9.1 jar 里该放什么：按引用闭包抽，不能整包倒
+
+把官方 APK 两个 dex 全量 `dex2jar` 后**不能**直接当 jar 用 —— 官方 App 自己带着
+`com.google.android.material`(869 类)、`androidx.*`、`protobuf`，整包倒进去必然
+`checkGithubDebugDuplicateClasses` 报一堆重复类。
+
+正确做法是**从 SDK 的根包出发算引用闭包**（`com.ucar` + `com.share` + `com.ucarsink`），
+把宿主已提供的包（`androidx/` `com/google/android/` `com/google/protobuf/` `kotlin/`
+`com/google/firebase/` …）与厂商 App 层（`com/gxa/` 车控、`com/syncore/`）排除在外。
+结果：**1,832 类 / 1.99 MB**（旧 jar 5.3 MB），自带 guava / gson / tink-subtle。
+
+⚠ 解析 class 文件常量池时注意：`CONSTANT_Class` 存的是**裸类名**
+（`com/google/crypto/tink/subtle/Hkdf`），**不是** dex 里的 `L…;` 描述符。
+只按 `L([\w/$]+);` 匹配会漏掉真实调用 —— 实测差点把 SDK 加密握手要用的 tink 漏掉
+（`com/ucar/vehiclesdk/c1` 用 `Hkdf.computeHkdf()` 做 ECDH 派生密钥）。
+
+### 9.2 必须补的厂商垫片：`DeviceNameActivity`
+
+新 SDK 在 **`UCarAdapter` 初始化阶段**（不是配对成功之后）就会调
+
+```java
+com.syncore.carlink.setting.DeviceNameActivity.resolveName(String)   // 静态方法
+```
+
+这个类住在厂商 App 里，官方 App 自带所以没事；我们只搬 SDK，运行到这一行直接
+
+```
+java.lang.NoClassDefFoundError: Failed resolution of: Lcom/syncore/carlink/setting/DeviceNameActivity;
+  at com.ucar.vehiclesdk.s2.g() ← s2.a() ← UCarAdapter.e() ← UCarAdapter.a()
+FATAL EXCEPTION: WorkerThread   → 进程当场死
+```
+
+旧版 SDK 里同一个调用不在启动路径上，所以换 2.0.24 才炸出来。
+补法是**自己写一个同包同名的垫片类**：`sdk-iccoa/src/main/java/com/syncore/carlink/setting/DeviceNameActivity.kt`，
+`class` + `companion object` + `@JvmStatic`（SDK 用 `invokestatic` 调，纯 `object` 或顶层函数
+生成的字节码形态对不上），`resolveName` 原样返回入参、空则兜底官方默认名「我的爱车」。
+
+已知同类厂商钩子（都在 SDK 里，Car++ 用不到但要知道）：
+`com.gxa.syncoreoslinkadapter.SyncoreOsLinkV3Impl` → 回调 `com.syncore.space.caradapter.*`
+（空调 / 车门 / 底盘车控），以及 SDK 里引用但**官方 App 也没带**的 `gxa.car.*`（音频 / 电源 /
+硬按键）—— 那些路径在官方包上同样不存在，属于可选模块。
+
+### 9.3 2.0.24 新增、需要在宿主侧登记的东西
+
+- `com.ucar.vehiclesdk.MockActionReceiver`（`ucar.intent.action.NOTIFICATION_MOCK_ACTION`）：
+  已按官方同款加进 `:sdk-iccoa` 的 manifest，并补了一条 signature 级
+  `com.ucar.permission.UCAR_NOTIFICATION_RECEIVER`（官方只引用不声明，等于没人能调）。
+- 原生库要跟着 jar 一起换版本：`libovmsink.so` / `libusbio.so` 由 SDK 内部
+  `SinkNative` / `UsbNative` 各自 `System.loadLibrary` 加载，**jar 与 so 必须同批**，
+  否则 JNI 注册的类名对不上。
+
+

@@ -20,6 +20,16 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.MANAGE_USB" />
 
+    <!--
+        SDK 2.0.24 新增的通知动作模拟入口（MockActionReceiver）所用权限。
+        官方 App 只引用、不声明这个权限 —— 结果是没人能持有它，接收器等于锁死。
+        这里补一条 signature 级声明，语义与官方一致（只有同签名应用能调），
+        但不再留下「未知权限」的隐患。
+    -->
+    <permission
+        android:name="com.ucar.permission.UCAR_NOTIFICATION_RECEIVER"
+        android:protectionLevel="signature" />
+
     <application>
 
         <!--
@@ -79,6 +89,21 @@
             android:name="androidx.room.MultiInstanceInvalidationService"
             android:directBootAware="true"
             android:exported="false" />
+
+        <!--
+            SDK 2.0.24 新增：手机通知卡片的「模拟动作」入口（ucar.intent.action.NOTIFICATION_MOCK_ACTION）。
+            与官方同款声明（exported=true + 权限锁），用于调试通知同步；
+            平时没人会发这个广播，缺了它不影响配对 / 投屏 / 触摸。
+        -->
+        <receiver
+            android:name="com.ucar.vehiclesdk.MockActionReceiver"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="com.ucar.permission.UCAR_NOTIFICATION_RECEIVER">
+            <intent-filter>
+                <action android:name="ucar.intent.action.NOTIFICATION_MOCK_ACTION" />
+            </intent-filter>
+        </receiver>
 
     </application>
 </manifest>
