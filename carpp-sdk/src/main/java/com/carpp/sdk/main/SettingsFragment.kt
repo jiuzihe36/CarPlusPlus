@@ -769,12 +769,15 @@ class SettingsFragment : Fragment() {
                 }
             ))
 
-            if ((pendingNativeApTransport ?: 0) == 1) {
-                items.add(SettingItem.InfoBanner(
-                    stableId = "nativeApTransportHint",
-                    textResId = R.string.native_ap_transport_hint
-                ))
+            // 说明无条件显示：两个选项的适用条件不同（车机热点要系统应用），
+            // 而且切换后都要重启 App 才生效 —— 只在选中「车机热点」时才提示，
+            // 会让人在选「局域网 Wi-Fi」时看不到这段关键限制。
+            items.add(SettingItem.InfoBanner(
+                stableId = "nativeApTransportHint",
+                textResId = R.string.native_ap_transport_hint
+            ))
 
+            if ((pendingNativeApTransport ?: 0) == 1) {
                 // The automatic read goes through the same non-public API that a locked-down
                 // device refuses outright, so on those units this override is the only way the
                 // route can learn the network name at all.

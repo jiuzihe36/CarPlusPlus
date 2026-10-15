@@ -1508,14 +1508,21 @@ class Settings(private val context: Context) {
         set(value) = prefs.edit().putString("bluetooth-manager-service-name", value).apply()
 
     // Which network the Native AA mode (wifiConnectionMode 3) puts the phone on.
-    // 0 = WiFi Direct, 1 = car hotspot. Legacy local-hotspot value 2 migrates to 1.
+    // 0 = WiFi Direct（车机与手机直连的局域网）, 1 = car hotspot. Legacy local-hotspot value 2 migrates to 1.
+    //
+    // 默认 0（局域网 Wi-Fi）：普通安装就能用。选 1（车机热点）时 SDK 会去 createSoftAp，
+    // 那一步要 TETHER_PRIVILEGED（signature|privileged），非系统应用必被系统拒绝
+    // （SecurityException: App not allowed to read or update stored WiFi Ap config），
+    // 表现为「手机一直停在正在连接」→ 20 秒后 key negotiation not finished → CONNECT_FAILED 10008。
+    // 所以默认必须是能开箱即用的那一路；车机热点保留为可切换项，供装成系统应用的机型使用。
+    // 注意 SDK 是 init-once：改完要重启 App 才生效。
     //
     // Deliberately not folded into helperConnectionStrategy: that setting belongs to mode 2 and
     // means something different in every one of its five values. A wireless mode that reuses
     // another mode's selector is how the two call sites of the old usesWifiDirect() drifted apart.
     var nativeApTransport: Int
         get() {
-            val stored = prefs.getInt("native-ap-transport", 1)
+            val stored = prefs.getInt("native-ap-transport", 0)
             return if (stored == 2) {
                 prefs.edit().putInt("native-ap-transport", 1).apply()
                 1

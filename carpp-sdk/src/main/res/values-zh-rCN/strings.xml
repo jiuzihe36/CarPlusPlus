@@ -872,9 +872,9 @@
     <string name="manual_secondary_bt_service_title">手动指定第二蓝牙模块</string>
     <string name="manual_secondary_bt_service_message">高级：在双蓝牙模块车机上强制使用未自动检测到的第二模块。通过 adb shell service list（查找 bluetooth_manager 以外的蓝牙条目）或工程菜单找到它，然后粘贴冒号前的名称或方括号中的接口。某些定制蓝牙系统仍可能不兼容。留空可禁用。</string>
     <string name="native_ap_transport">网络传输方式</string>
-    <string name="native_ap_transport_wifi_direct">WiFi Direct</string>
-    <string name="native_ap_transport_hotspot">热点</string>
-    <string name="native_ap_transport_hint">实验功能。手机加入此设备的热点，而非 Wi-Fi Direct 群组。请手动开启热点，并尽量设为 5 GHz；使用 2.4 GHz 时可能反复连接和断开且无画面，除非降低分辨率和帧率。如果无法自动读取网络名称，请在下方填写。</string>
+    <string name="native_ap_transport_wifi_direct">局域网 Wi-Fi</string>
+    <string name="native_ap_transport_hotspot">车机热点</string>
+    <string name="native_ap_transport_hint">局域网 Wi-Fi（默认）：车机与手机直接组网，普通安装即可用。\n车机热点：由车机自己开热点，需要把 Car++ 装成系统应用（TETHER_PRIVILEGED 权限），否则连接会停在「正在连接」后失败；若车机热点在 2.4 GHz 上，请尽量改用 5 GHz，否则可能反复断连且无画面。\n两种方式切换后都需要重启 Car++ 才生效。</string>
     <string name="hotspot_interface_override">热点网络接口</string>
     <string name="hotspot_interface_override_message">留空可自动检测。如果日志提示存在多个可能的热点接口或选错接口，请填写。使用日志中 Providing credentials from 后的名称，或 shell 命令 ip -brief addr 中包含热点地址的接口。常见名称：ap0、wlan0、wlan1、wlan2、softap0、ra0。</string>
     <string name="hotspot_ssid_override">热点名称（手动）</string>
