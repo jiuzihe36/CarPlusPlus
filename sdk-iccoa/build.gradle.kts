@@ -20,8 +20,8 @@ android {
     namespace = "com.carpp.iccoa"
 
     defaultConfig {
-        // 跟 :carpp-sdk 保持一致（github 渠道 minSdk 16），否则 manifest 合并会冲突。
-        minSdk = 16
+        // 跟 :carpp-sdk 保持一致（minSdk 21，Compose 要求），否则 manifest 合并会冲突。
+        minSdk = 21
         consumerProguardFiles("proguard-rules.pro")
     }
 
@@ -33,7 +33,7 @@ android {
         }
         create("github") {
             dimension = "distribution"
-            // Default minSdk 16 from defaultConfig is used
+            // Default minSdk 21 from defaultConfig is used
         }
     }
 

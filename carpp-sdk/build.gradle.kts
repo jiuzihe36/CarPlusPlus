@@ -17,6 +17,12 @@ android {
     buildFeatures {
         buildConfig = true
         aidl = true // needed for shizuku
+        compose = true // 星际科幻主页 UI（HomeFragment 的 ComposeView 承载层）
+    }
+
+    composeOptions {
+        // 配 Kotlin 1.9.22（见根 build.gradle.kts kotlin-gradle-plugin 版本）
+        kotlinCompilerExtensionVersion = "1.5.10"
     }
 
     externalNativeBuild {
@@ -75,7 +81,8 @@ android {
     }
 
     defaultConfig {
-        minSdk = 16
+        // Compose 要求 minSdk ≥ 21；github 渠道与 playstore 渠道自此一致。
+        minSdk = 21
         // Store available locales in BuildConfig for runtime access
         // This is scanned at build time from values-XX directories
         buildConfigField("String", "AVAILABLE_LOCALES", "\"${availableLocales.joinToString(",")}\"")
@@ -115,7 +122,7 @@ android {
         }
         create("github") {
             dimension = "distribution"
-            // Default minSdk 16 from defaultConfig is used
+            // Default minSdk 21 from defaultConfig is used
         }
     }
 
@@ -168,6 +175,13 @@ dependencies {
     "githubImplementation"("org.conscrypt:conscrypt-android:2.5.3")
 
     implementation("com.google.protobuf:protobuf-java:3.25.1")
+    // ★ 星际科幻主页 UI：只用 ui/foundation/animation（无 material3 —— 全套自绘全息风格）。
+    val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
+    implementation(composeBom)
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.ui:ui-graphics")
+    implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.compose.animation:animation")
     implementation("androidx.activity:activity-ktx:1.8.2")
     implementation("androidx.fragment:fragment-ktx:1.6.2")
     implementation("androidx.media:media:1.6.0")

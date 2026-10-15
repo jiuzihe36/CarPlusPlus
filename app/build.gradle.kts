@@ -27,7 +27,8 @@ android {
     defaultConfig {
         // Car++ installs as its own package, so it can sit alongside other receiver apps on the same head unit.
         applicationId = "com.carpp.app"
-        minSdk = 16
+        // Compose 主页 UI 要求 minSdk ≥ 21；两渠道自此一致。
+        minSdk = 21
         targetSdk = 36
         versionCode = 2
         versionName = "0.1.1"
@@ -44,7 +45,7 @@ android {
         }
         create("github") {
             dimension = "distribution"
-            // Default minSdk 16 from defaultConfig is used
+            // Default minSdk 21 from defaultConfig is used
         }
     }
 
